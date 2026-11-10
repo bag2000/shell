@@ -1,0 +1,121 @@
+# Arch OS prompt theme: https://github.com/murkl/starship-theme-arch-os
+# SPDX-FileCopyrightText: 2025 Moritz Schaal
+# SPDX-License-Identifier: MIT
+# Vendored from starship.toml at commit 2fcc9b6.
+# See THIRD_PARTY_NOTICES.md for the full MIT license text.
+
+"$schema" = 'https://starship.rs/config-schema.json'
+
+format = """
+$os\
+[](fg:color_bg bg:color_fg)\
+$directory\
+[](fg:color_fg bg:color_green)\
+$git_branch\
+$git_status\
+$package\
+$docker_context\
+[](fg:color_green bg:color_yellow)\
+$shell\
+$shlvl\
+[](fg:color_yellow bg:color_red)\
+$username\
+[](fg:color_red bg:color_blue)\
+$hostname\
+$localip\
+[](fg:color_blue)\
+$line_break\
+$character"""
+right_format = '$cmd_duration'
+add_newline = false
+palette = 'arch_os'
+
+# Nord: https://www.nordtheme.com
+[palettes.arch_os]
+color_fg = '#d8dee9'
+color_bg = '#2e3440'
+color_blue = '#81a1c1'
+color_red = '#bf616a'
+color_yellow = '#ebcb8b'
+color_green = '#a3be8c'
+color_purple = '#b48ead'
+
+# One space between an icon and its text: each such icon ends within 1.35 cells
+# of FiraCode Nerd Font, the font arch-os sets for GNOME.
+
+[os]
+disabled = false
+symbols = { Arch = ' ', Unknown = ' ' }
+style = 'fg:color_fg bg:color_bg'
+format = '[  $symbol ]($style)'
+
+[hostname]
+ssh_symbol = ' '
+style = 'fg:color_bg bg:color_blue'
+format = '[ $ssh_symbol󱡶 $hostname ]($style)'
+
+[localip]
+disabled = false
+style = 'fg:color_bg bg:color_blue'
+format = '[ 󰩟 $localipv4 ]($style)'
+
+[username]
+style_user = 'fg:color_bg bg:color_red'
+style_root = 'fg:color_bg bg:color_red'
+format = '[ 󰀄 $user ]($style)'
+
+[shell]
+disabled = false
+zsh_indicator = ''
+bash_indicator = '  bash '
+fish_indicator = '  fish '
+unknown_indicator = '  shell '
+style = 'fg:color_bg bg:color_yellow'
+format = '[$indicator]($style)'
+
+[shlvl]
+disabled = false
+symbol = ''
+style = 'fg:color_bg bg:color_yellow'
+format = '[ $symbol $shlvl ]($style)'
+
+[git_branch]
+symbol = '󰘬'
+style = 'fg:color_bg bg:color_green'
+format = '[ $symbol $branch ]($style)'
+
+[git_status]
+style = 'bold fg:color_bg bg:color_green'
+format = '([$all_status$ahead_behind ]($style))'
+
+[package]
+symbol = '󰏗'
+style = 'fg:color_bg bg:color_green'
+format = '[ $symbol $version ]($style)'
+
+[docker_context]
+symbol = '󰡨'
+style = 'fg:color_bg bg:color_green'
+format = '[ $symbol $context ]($style)'
+
+[directory]
+truncation_length = 5
+truncation_symbol = '../'
+read_only = '󰌾 '
+read_only_style = 'fg:color_red bg:color_fg'
+style = 'bold fg:color_bg bg:color_fg'
+format = '[ 󰉋 ]($style)[$read_only]($read_only_style)[$path ]($style)'
+
+[character]
+format = '$symbol'
+success_symbol = '[  :  ](bold fg:color_fg)'
+error_symbol = '[  :  ](bold fg:color_red)'
+vimcmd_symbol = '[    ](bold fg:color_fg)'
+vimcmd_replace_one_symbol = '[    ](bold fg:color_purple)'
+vimcmd_replace_symbol = '[    ](bold fg:color_purple)'
+vimcmd_visual_symbol = '[    ](bold fg:color_yellow)'
+
+[cmd_duration]
+min_time = 500
+style = 'fg:color_fg'
+format = '[ ◄ $duration ]($style)'

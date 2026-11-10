@@ -1,0 +1,7 @@
+# Local proxy settings
+.env
+.env.*
+!.env.example
+
+# Installer backups
+*.bak.*

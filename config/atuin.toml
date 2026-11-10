@@ -1,0 +1,14 @@
+# Managed by bag2000/shell — https://github.com/bag2000/shell
+# Atuin configuration. Docs: https://docs.atuin.sh/configuration/config/
+# Re-run install.sh to update it; manual changes are backed up on update.
+
+# Local-only by default: history stays on this machine and Atuin does not
+# contact GitHub for update checks. Enable sync manually if you need it.
+auto_sync = false
+update_check = false
+
+# Search UI.
+enter_accept = true
+style = "compact"
+inline_height = 20
+show_preview = true
