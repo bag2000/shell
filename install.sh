@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Install fish, starship, atuin, zoxide, lsd and a Nerd Font with a ready-to-use
+# Install fish, starship, atuin, zoxide, fzf, lsd and a Nerd Font with a ready-to-use
 # configuration.
 #
 # Usage:
@@ -14,10 +14,11 @@
 
 set -Eeuo pipefail
 
-SCRIPT_VERSION="1.5.0"
+SCRIPT_VERSION="1.6.0"
 STARSHIP_VERSION="${STARSHIP_VERSION:-latest}"
 ATUIN_VERSION="${ATUIN_VERSION:-latest}"
 ZOXIDE_VERSION="${ZOXIDE_VERSION:-latest}"
+FZF_VERSION="${FZF_VERSION:-latest}"
 LSD_VERSION="${LSD_VERSION:-latest}"
 FISH_VERSION="${FISH_VERSION:-latest}"
 
@@ -27,6 +28,7 @@ NO_CONFIG=0
 NO_STARSHIP=0
 NO_ATUIN=0
 NO_ZOXIDE=0
+NO_FZF=0
 NO_LSD=0
 NO_FONT=0
 FORCE=0
@@ -115,7 +117,7 @@ trap 'on_error "$LINENO" "$?"' ERR
 
 usage() {
     cat <<EOF
-${BOLD}fish + starship + atuin + zoxide + lsd + font installer${RESET} v${SCRIPT_VERSION}
+${BOLD}fish + starship + atuin + zoxide + fzf + lsd + font installer${RESET} v${SCRIPT_VERSION}
 
 Usage:
   git clone https://github.com/bag2000/shell.git
@@ -129,9 +131,10 @@ Options:
   --no-starship          Do not install starship.
   --no-atuin             Do not install atuin.
   --no-zoxide            Do not install zoxide.
+  --no-fzf               Do not install fzf.
   --no-lsd               Do not install lsd.
   --no-font              Do not install JetBrainsMono Nerd Font.
-  --force                Reinstall starship, atuin, zoxide, lsd and fonts even if present.
+  --force                Reinstall starship, atuin, zoxide, fzf, lsd and fonts even if present.
   --dry-run              Detect the system and print the plan, change nothing.
   --check                Show installed and latest versions, change nothing.
                          Exit: 0 up to date, 1 updates available, 2 check failed.
@@ -142,6 +145,7 @@ Options:
   --starship-version V   Install a specific starship version (default: latest).
   --atuin-version V      Install a specific atuin version (default: latest).
   --zoxide-version V     Install a specific zoxide version (default: latest).
+  --fzf-version V        Install a specific fzf version (default: latest).
   --lsd-version V        Install a specific lsd version (default: latest).
   --fish-version V       Install a specific fish version (default: latest).
   --proxy URL            Use this HTTP(S)/SOCKS proxy for all downloads.
@@ -155,6 +159,7 @@ Environment:
   STARSHIP_VERSION   Same as --starship-version.
   ATUIN_VERSION      Same as --atuin-version.
   ZOXIDE_VERSION     Same as --zoxide-version.
+  FZF_VERSION        Same as --fzf-version.
   LSD_VERSION        Same as --lsd-version.
   FISH_VERSION       Same as --fish-version.
   ENV_FILE           Path to an env file with proxy settings.
@@ -192,6 +197,7 @@ parse_args() {
             --no-starship) NO_STARSHIP=1 ;;
             --no-atuin) NO_ATUIN=1 ;;
             --no-zoxide) NO_ZOXIDE=1 ;;
+            --no-fzf) NO_FZF=1 ;;
             --no-lsd) NO_LSD=1 ;;
             --no-font) NO_FONT=1 ;;
             --force) FORCE=1 ;;
@@ -236,6 +242,11 @@ parse_args() {
             --zoxide-version)
                 [[ $# -ge 2 ]] || die "--zoxide-version requires a version"
                 ZOXIDE_VERSION=$2
+                shift
+                ;;
+            --fzf-version)
+                [[ $# -ge 2 ]] || die "--fzf-version requires a version"
+                FZF_VERSION=$2
                 shift
                 ;;
             --lsd-version)
@@ -1102,6 +1113,120 @@ install_zoxide() {
     ok "zoxide installed: $bin"
 }
 
+detect_fzf_target() {
+    local arch
+    arch=$(uname -m | tr '[:upper:]' '[:lower:]')
+
+    case "$arch" in
+        amd64|x86_64) arch="amd64" ;;
+        arm64|aarch64) arch="arm64" ;;
+        i386|i486|i586|i686) arch="386" ;;
+        armv5*) arch="armv5" ;;
+        armv6*) arch="armv6" ;;
+        armv7*) arch="armv7" ;;
+        riscv64) arch="riscv64" ;;
+        ppc64le) arch="ppc64le" ;;
+        s390x) arch="s390x" ;;
+        loongarch64) arch="loong64" ;;
+        *) return 1 ;;
+    esac
+
+    printf 'linux_%s' "$arch"
+}
+
+resolve_fzf_version() {
+    if [[ -n "$FZF_VERSION" && "$FZF_VERSION" != "latest" ]]; then
+        printf '%s\n' "${FZF_VERSION#v}"
+        return 0
+    fi
+    resolve_latest_version "junegunn/fzf"
+}
+
+install_fzf() {
+    if ((NO_FZF)); then
+        info "Skipping fzf (--no-fzf)"
+        return 0
+    fi
+
+    local bin="$TARGET_HOME/.local/bin/fzf"
+    local existing="" current=""
+    if [[ -x "$bin" ]]; then
+        existing=$bin
+    elif command -v fzf >/dev/null 2>&1; then
+        existing=$(command -v fzf)
+    fi
+
+    local target version
+    if ! target=$(detect_fzf_target); then
+        warn "fzf has no prebuilt binary for $(uname -m); skipping"
+        NO_FZF=1
+        return 0
+    fi
+
+    if ! version=$(resolve_fzf_version); then
+        if [[ -n "$existing" ]]; then
+            current=$("$existing" --version 2>/dev/null | awk '{print $1}' | head -n1)
+            warn "could not check the latest fzf version; keeping $existing ($current)"
+            return 0
+        fi
+        die "could not determine the latest fzf version; set FZF_VERSION=x.y.z"
+    fi
+
+    if [[ -n "$existing" ]] && ((!FORCE)); then
+        current=$("$existing" --version 2>/dev/null | awk '{print $1}' | head -n1)
+        if [[ "${version#v}" == "$current" ]]; then
+            ok "fzf is up to date: $existing ($current)"
+            return 0
+        fi
+        info "Updating fzf ${current:-unknown} -> ${version}"
+    fi
+
+    local tmp
+    info "Installing fzf ${version} (${target})"
+    tmp=$(mktemp -d "${TMPDIR:-/tmp}/shell-fzf.XXXXXX")
+    TMP_DIRS+=("$tmp")
+
+    local downloaded=0
+    local candidate
+    if download_release_asset "junegunn/fzf" "$version" \
+        "fzf-${version}-${target}.tar.gz" "$tmp/fzf.tar.gz" 3; then
+        downloaded=1
+    elif [[ "$FZF_VERSION" == "latest" ]]; then
+        warn "could not download fzf ${version}; trying recent releases"
+        while IFS= read -r candidate; do
+            [[ -z "$candidate" || "$candidate" == "$version" ]] && continue
+            info "Trying fzf ${candidate}"
+            if download_release_asset "junegunn/fzf" "$candidate" \
+                "fzf-${candidate}-${target}.tar.gz" "$tmp/fzf.tar.gz" 1; then
+                version=$candidate
+                downloaded=1
+                break
+            fi
+        done < <(list_recent_versions "junegunn/fzf")
+    fi
+
+    if ((!downloaded)); then
+        die "failed to download fzf for ${target}; set FZF_VERSION=<version> or check the proxy"
+    fi
+
+    tar -xzf "$tmp/fzf.tar.gz" -C "$tmp"
+    local extracted="$tmp/fzf"
+    if [[ ! -f "$extracted" ]]; then
+        extracted=$(find "$tmp" -maxdepth 3 -type f -name fzf | head -n1) || true
+    fi
+    [[ -n "$extracted" && -f "$extracted" ]] \
+        || die "the fzf archive did not contain a binary"
+
+    make_dir "$(dirname "$bin")"
+    install -m 0755 "$extracted" "$bin"
+    if ((EUID == 0)) && [[ "$TARGET_USER" != "root" ]]; then
+        chown "$TARGET_USER:$TARGET_GROUP" "$bin"
+    fi
+
+    "$bin" --version
+    ok "fzf installed: $bin"
+}
+
 detect_lsd_target() {
     local arch
     arch=$(uname -m | tr '[:upper:]' '[:lower:]')
@@ -1226,6 +1351,7 @@ tool_enabled() {
         starship) [[ $NO_STARSHIP -eq 0 ]] ;;
         atuin) [[ $NO_ATUIN -eq 0 ]] ;;
         zoxide) [[ $NO_ZOXIDE -eq 0 ]] ;;
+        fzf) [[ $NO_FZF -eq 0 ]] ;;
         lsd) [[ $NO_LSD -eq 0 ]] ;;
         *) return 0 ;;
     esac
@@ -1257,6 +1383,8 @@ tool_current_version() {
     bin=$(tool_bin "$name") || return 1
     if [[ "$name" == "fish" ]]; then
         version=$("$bin" --version 2>/dev/null | awk '{print $3}' | head -n1)
+    elif [[ "$name" == "fzf" ]]; then
+        version=$("$bin" --version 2>/dev/null | awk '{print $1}' | head -n1)
     else
         version=$("$bin" --version 2>/dev/null | awk '{print $2}' | head -n1)
     fi
@@ -1270,6 +1398,7 @@ resolve_tool_version() {
         starship) resolve_starship_version ;;
         atuin) resolve_atuin_version ;;
         zoxide) resolve_zoxide_version ;;
+        fzf) resolve_fzf_version ;;
         lsd) resolve_lsd_version ;;
         *) return 1 ;;
     esac
@@ -1469,7 +1598,7 @@ setup_shell() {
 }
 
 print_plan() {
-    local fish_state starship_state atuin_state zoxide_state lsd_state font_state font_dir config_state proxy_state
+    local fish_state starship_state atuin_state zoxide_state fzf_state lsd_state font_state font_dir config_state proxy_state
     if [[ -x "/usr/local/bin/fish" ]]; then
         FISH_BIN="/usr/local/bin/fish"
     else
@@ -1506,6 +1635,15 @@ print_plan() {
         zoxide_state="will install to $TARGET_HOME/.local/bin/zoxide"
     else
         zoxide_state="no binary for $(uname -m); will skip"
+    fi
+    if ((NO_FZF)); then
+        fzf_state="skipped"
+    elif command -v fzf >/dev/null 2>&1 || [[ -x "$TARGET_HOME/.local/bin/fzf" ]]; then
+        fzf_state="already installed"
+    elif detect_fzf_target >/dev/null 2>&1; then
+        fzf_state="will install to $TARGET_HOME/.local/bin/fzf"
+    else
+        fzf_state="no binary for $(uname -m); will skip"
     fi
     if ((NO_LSD)); then
         lsd_state="skipped"
@@ -1547,6 +1685,7 @@ ${BOLD}Installation plan${RESET}
   starship     : $starship_state
   atuin        : $atuin_state
   zoxide       : $zoxide_state
+  fzf          : $fzf_state
   lsd          : $lsd_state
   font         : $font_state
   configs      : $config_state
@@ -1588,6 +1727,15 @@ print_summary() {
         printf '  zoxide    : %s\n' "$(command -v zoxide)"
     else
         printf '  zoxide    : not installed\n'
+    fi
+    if ((NO_FZF)); then
+        printf '  fzf       : skipped\n'
+    elif [[ -x "$TARGET_HOME/.local/bin/fzf" ]]; then
+        printf '  fzf       : %s\n' "$TARGET_HOME/.local/bin/fzf"
+    elif command -v fzf >/dev/null 2>&1; then
+        printf '  fzf       : %s\n' "$(command -v fzf)"
+    else
+        printf '  fzf       : not installed\n'
     fi
     if ((NO_LSD)); then
         printf '  lsd       : skipped\n'
@@ -1638,7 +1786,7 @@ check_versions() {
     printf '\n%sVersion check%s\n' "$BOLD" "$RESET"
     printf '  %-10s %-14s %-14s %s\n' "tool" "installed" "latest" "status"
 
-    for name in fish starship atuin zoxide lsd; do
+    for name in fish starship atuin zoxide fzf lsd; do
         tool_enabled "$name" || continue
 
         if ! latest=$(resolve_tool_version "$name"); then
@@ -1692,7 +1840,7 @@ ensure_update_prereqs() {
 
 update_tools() {
     local name
-    for name in fish starship atuin zoxide lsd; do
+    for name in fish starship atuin zoxide fzf lsd; do
         if ! tool_enabled "$name"; then
             info "Skipping $name"
             continue
@@ -1712,6 +1860,7 @@ update_tools() {
             starship) install_starship ;;
             atuin) install_atuin ;;
             zoxide) install_zoxide ;;
+            fzf) install_fzf ;;
             lsd) install_lsd ;;
         esac
     done
@@ -1721,7 +1870,7 @@ print_update_summary() {
     local name current
     printf '\n'
     ok "Update complete"
-    for name in fish starship atuin zoxide lsd; do
+    for name in fish starship atuin zoxide fzf lsd; do
         tool_enabled "$name" || continue
         if current=$(tool_current_version "$name"); then
             printf '  %-10s %s\n' "$name" "$current"
@@ -1773,6 +1922,7 @@ main() {
     install_starship
     install_atuin
     install_zoxide
+    install_fzf
     install_lsd
     install_fonts
     install_configs

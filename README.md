@@ -2,7 +2,8 @@
 
 Установщик [fish](https://fishshell.com/) + [starship](https://starship.rs/) +
 [atuin](https://atuin.sh/) + [zoxide](https://github.com/ajeetdsouza/zoxide) +
-[lsd](https://github.com/lsd-rs/lsd) и шрифта JetBrainsMono Nerd Font
+[fzf](https://github.com/junegunn/fzf) + [lsd](https://github.com/lsd-rs/lsd)
+и шрифта JetBrainsMono Nerd Font
 с темой [Arch OS](https://github.com/murkl/starship-theme-arch-os)
 и готовой конфигурацией истории команд. Идемпотентно, с бэкапами существующих
 конфигов.
@@ -58,7 +59,7 @@ NO_PROXY=localhost,127.0.0.1,::1,192.168.0.0/16
 Можно указать один адрес — `PROXY=proxy.example.com:8080`. Схема `http://` добавится
 автоматически, значение применится к HTTP, HTTPS и ALL.
 
-Прокси используется для скачивания fish, starship, atuin, zoxide и lsd, а также
+Прокси используется для скачивания fish, starship, atuin, zoxide, fzf и lsd, а также
 передаётся пакетным менеджерам:
 
 - `apt` — через `Acquire::http::Proxy` / `Acquire::https::Proxy`;
@@ -100,20 +101,22 @@ URL прокси не попадают в лог: выводится `http://***
    (`Ctrl-R` / стрелка вверх). Для неподдерживаемых архитектур шаг пропускается.
 7. Скачивает `zoxide` в `~/.local/bin` и включает `z` / `zi` для быстрого
    перехода по каталогам.
-8. Скачивает `lsd` с GitHub Releases в `~/.local/bin` (только готовый бинарник,
+8. Скачивает `fzf` с GitHub Releases в `~/.local/bin` (только готовый бинарник,
+   не из пакетного репозитория дистрибутива) — нужен для интерактивного `zi`.
+9. Скачивает `lsd` с GitHub Releases в `~/.local/bin` (только готовый бинарник,
    не из пакетного репозитория дистрибутива). Для неподдерживаемых архитектур
    шаг пропускается.
-9. Ставит вендорный шрифт JetBrainsMono Nerd Font Mono из `fonts/` в
-   `~/.local/share/fonts/JetBrainsMonoNerdFontMono` (без сети и пакетных
-   репозиториев).
-10. Устанавливает конфиги:
-   - `~/.config/fish/conf.d/00-shell-setup.fish`
-   - `~/.config/starship.toml`
-   - `~/.config/atuin/config.toml`
-   (с учётом `XDG_CONFIG_HOME`, если он задан).
-11. Регистрирует fish в `/etc/shells` и меняет login shell через `chsh`.
+10. Ставит вендорный шрифт JetBrainsMono Nerd Font Mono из `fonts/` в
+    `~/.local/share/fonts/JetBrainsMonoNerdFontMono` (без сети и пакетных
+    репозиториев).
+11. Устанавливает конфиги:
+    - `~/.config/fish/conf.d/00-shell-setup.fish`
+    - `~/.config/starship.toml`
+    - `~/.config/atuin/config.toml`
+    (с учётом `XDG_CONFIG_HOME`, если он задан).
+12. Регистрирует fish в `/etc/shells` и меняет login shell через `chsh`.
 
-При повторном запуске fish, starship, atuin, zoxide и lsd проверяются на GitHub:
+При повторном запуске fish, starship, atuin, zoxide, fzf и lsd проверяются на GitHub:
 если установлена не последняя версия, она обновляется. Если GitHub временно
 недоступен, уже установленные бинарники остаются нетронутыми.
 
@@ -135,8 +138,8 @@ URL прокси не попадают в лог: выводится `http://***
 # Посмотреть план без изменений в системе
 bash install.sh --dry-run
 
-# Поставить только fish, без starship, atuin, zoxide, lsd, шрифта и конфигов
-bash install.sh --no-starship --no-atuin --no-zoxide --no-lsd --no-font --no-config
+# Поставить только fish, без starship, atuin, zoxide, fzf, lsd, шрифта и конфигов
+bash install.sh --no-starship --no-atuin --no-zoxide --no-fzf --no-lsd --no-font --no-config
 
 # Не менять login shell (например, на сервере)
 bash install.sh --no-chsh
@@ -144,8 +147,8 @@ bash install.sh --no-chsh
 # Конкретная версия starship
 STARSHIP_VERSION=1.26.0 bash install.sh
 
-# Без atuin, zoxide и lsd
-bash install.sh --no-atuin --no-zoxide --no-lsd
+# Без atuin, zoxide, fzf и lsd
+bash install.sh --no-atuin --no-zoxide --no-fzf --no-lsd
 
 # Прокси можно передать флагом вместо .env
 bash install.sh --proxy http://proxy.example.com:8080
@@ -164,9 +167,10 @@ bash install.sh --update
 | `--no-starship` | Не устанавливать starship |
 | `--no-atuin` | Не устанавливать atuin |
 | `--no-zoxide` | Не устанавливать zoxide |
+| `--no-fzf` | Не устанавливать fzf |
 | `--no-lsd` | Не устанавливать lsd |
 | `--no-font` | Не устанавливать шрифт JetBrainsMono Nerd Font |
-| `--force` | Переустановить starship, atuin, zoxide, lsd и шрифт, даже если они уже есть |
+| `--force` | Переустановить starship, atuin, zoxide, fzf, lsd и шрифт, даже если они уже есть |
 | `--dry-run` | Показать план и выйти, ничего не меняя |
 | `--check` | Показать установленные и последние версии, ничего не меняя |
 | `--update` | Обновить только уже установленные утилиты |
@@ -175,6 +179,7 @@ bash install.sh --update
 | `--starship-version V` | Установить указанную версию starship |
 | `--atuin-version V` | Установить указанную версию atuin |
 | `--zoxide-version V` | Установить указанную версию zoxide |
+| `--fzf-version V` | Установить указанную версию fzf |
 | `--lsd-version V` | Установить указанную версию lsd |
 | `--fish-version V` | Установить указанную версию fish |
 | `--proxy URL` | Использовать указанный HTTP(S)/SOCKS-прокси |
@@ -184,7 +189,7 @@ bash install.sh --update
 | `--version` | Версия установщика |
 
 Переменные окружения: `STARSHIP_VERSION`, `ATUIN_VERSION`, `ZOXIDE_VERSION`,
-`LSD_VERSION`, `FISH_VERSION`, `ENV_FILE`.
+`FZF_VERSION`, `LSD_VERSION`, `FISH_VERSION`, `ENV_FILE`.
 
 ## Шрифт и иконки в промпте
 
@@ -235,12 +240,27 @@ zoxide — умная замена `cd`. Бинарник ставится в `~
 
 ```bash
 z projects     # перейти в часто используемый каталог
-zi             # интерактивный выбор (требуется fzf)
+zi             # интерактивный выбор через fzf
 ```
 
 Данные хранятся в `~/.local/share/zoxide`. Отдельного конфига у zoxide нет.
-Для `zi` установите `fzf` (`sudo apt install fzf`, `sudo dnf install fzf`,
-`sudo pacman -S fzf`).
+Установщик ставит `fzf` в `~/.local/bin`, так что `zi` работает сразу. Пропустить
+установку fzf: `--no-fzf`.
+
+## fzf
+
+fzf — нечёткий поиск в терминале. Бинарник ставится в `~/.local/bin/fzf`
+**только с GitHub Releases** ([junegunn/fzf](https://github.com/junegunn/fzf)),
+пакетный репозиторий дистрибутива не используется. Он нужен для `zi` (zoxide);
+отдельной интеграции в fish установщик не включает, чтобы не конфликтовать с
+поиском истории Atuin (`Ctrl-R`).
+
+```bash
+fzf --version
+```
+
+Пропустить установку: `--no-fzf`. Конкретная версия: `--fzf-version V` или
+`FZF_VERSION=V bash install.sh`.
 
 ## lsd
 
@@ -268,8 +288,8 @@ bash install.sh --check    # только сравнить версии, нич�
 bash install.sh --update   # обновить уже установленные утилиты
 ```
 
-`--check` сравнивает установленные версии fish, starship, atuin, zoxide и lsd
-с последними на GitHub и печатает таблицу. Коды возврата:
+`--check` сравнивает установленные версии fish, starship, atuin, zoxide, fzf и
+lsd с последними на GitHub и печатает таблицу. Коды возврата:
 
 - `0` — всё актуально;
 - `1` — есть обновления или какая-то утилита не установлена;
@@ -288,14 +308,14 @@ git pull
 bash install.sh
 ```
 
-Установщик сверит версии fish, starship, atuin, zoxide и lsd с GitHub и обновит
-их при необходимости. Конфиги будут обновлены с бэкапами, если они изменились.
+Установщик сверит версии fish, starship, atuin, zoxide, fzf и lsd с GitHub и
+обновит их при необходимости. Конфиги будут обновлены с бэкапами, если они изменились.
 Локальный `.env` при `git pull` не затрагивается.
 
 ## Проверка
 
 Тест поднимает чистый контейнер, создаёт пользователя с passwordless sudo,
-выполняет установку, проверяет fish/starship/atuin/zoxide/lsd, шрифт и конфиги,
+выполняет установку, проверяет fish/starship/atuin/zoxide/fzf/lsd, шрифт и конфиги,
 идемпотентный повторный запуск, загрузку прокси из `.env`/`--env-file`,
 маскирование пароля, `--dry-run`, `--check` и `--update`.
 
@@ -324,6 +344,7 @@ rm -f ~/.config/fish/conf.d/00-shell-setup.fish
 rm -f ~/.local/bin/starship
 rm -f ~/.local/bin/atuin
 rm -f ~/.local/bin/zoxide
+rm -f ~/.local/bin/fzf
 rm -f ~/.local/bin/lsd
 rm -rf ~/.local/share/fonts/JetBrainsMonoNerdFontMono
 fc-cache -f

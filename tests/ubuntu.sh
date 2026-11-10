@@ -7,6 +7,7 @@
 #   STARSHIP_VERSION=1.26.0 tests/ubuntu.sh
 #   ATUIN_VERSION=18.24.0 tests/ubuntu.sh
 #   ZOXIDE_VERSION=0.10.0 tests/ubuntu.sh
+#   FZF_VERSION=0.75.0 tests/ubuntu.sh
 #   LSD_VERSION=1.2.0 tests/ubuntu.sh
 #   FISH_VERSION=4.9.3 tests/ubuntu.sh
 #   IMAGE=ubuntu:22.04 tests/ubuntu.sh
@@ -18,15 +19,17 @@ IMAGE=${IMAGE:-ubuntu:24.04}
 STARSHIP_VERSION=${STARSHIP_VERSION:-latest}
 ATUIN_VERSION=${ATUIN_VERSION:-latest}
 ZOXIDE_VERSION=${ZOXIDE_VERSION:-latest}
+FZF_VERSION=${FZF_VERSION:-latest}
 LSD_VERSION=${LSD_VERSION:-latest}
 FISH_VERSION=${FISH_VERSION:-latest}
 
-echo "Testing $IMAGE (fish $FISH_VERSION, starship $STARSHIP_VERSION, atuin $ATUIN_VERSION, zoxide $ZOXIDE_VERSION)"
+echo "Testing $IMAGE (fish $FISH_VERSION, starship $STARSHIP_VERSION, atuin $ATUIN_VERSION, zoxide $ZOXIDE_VERSION, fzf $FZF_VERSION)"
 
 docker run --rm -i \
     -e "STARSHIP_VERSION=$STARSHIP_VERSION" \
     -e "ATUIN_VERSION=$ATUIN_VERSION" \
     -e "ZOXIDE_VERSION=$ZOXIDE_VERSION" \
+    -e "FZF_VERSION=$FZF_VERSION" \
     -e "LSD_VERSION=$LSD_VERSION" \
     -e "FISH_VERSION=$FISH_VERSION" \
     -v "$ROOT:/src:ro" \
@@ -42,7 +45,7 @@ useradd -m -s /bin/bash tester
 echo 'tester ALL=(ALL) NOPASSWD:ALL' >/etc/sudoers.d/tester
 chmod 440 /etc/sudoers.d/tester
 
-install_cmd="sudo env FISH_VERSION=$FISH_VERSION STARSHIP_VERSION=$STARSHIP_VERSION ATUIN_VERSION=$ATUIN_VERSION ZOXIDE_VERSION=$ZOXIDE_VERSION LSD_VERSION=$LSD_VERSION bash /src/install.sh --no-proxy"
+install_cmd="sudo env FISH_VERSION=$FISH_VERSION STARSHIP_VERSION=$STARSHIP_VERSION ATUIN_VERSION=$ATUIN_VERSION ZOXIDE_VERSION=$ZOXIDE_VERSION FZF_VERSION=$FZF_VERSION LSD_VERSION=$LSD_VERSION bash /src/install.sh --no-proxy"
 
 echo "=== fresh install (sudo, local configs) ==="
 su - tester -c "$install_cmd"
@@ -52,7 +55,11 @@ test "$(getent passwd tester | awk -F: '{print $7}')" = "/usr/local/bin/fish"
 test -x /home/tester/.local/bin/starship
 test -x /home/tester/.local/bin/atuin
 test -x /home/tester/.local/bin/zoxide
+test -x /home/tester/.local/bin/fzf
 test -x /home/tester/.local/bin/lsd
+if [[ "$FZF_VERSION" != "latest" ]]; then
+    test "$(/home/tester/.local/bin/fzf --version | awk '{print $1}')" = "${FZF_VERSION#v}"
+fi
 if [[ "$LSD_VERSION" != "latest" ]]; then
     test "$(/home/tester/.local/bin/lsd --version | awk '{print $2}')" = "${LSD_VERSION#v}"
 fi
@@ -77,13 +84,14 @@ su - tester -c 'fish -c "zoxide init fish | source; echo ZOXIDE_INIT_OK"' \
 echo "checks passed"
 
 echo "=== idempotent re-run (local configs) ==="
-su - tester -c "sudo env FISH_VERSION=$FISH_VERSION STARSHIP_VERSION=$STARSHIP_VERSION ATUIN_VERSION=$ATUIN_VERSION ZOXIDE_VERSION=$ZOXIDE_VERSION LSD_VERSION=$LSD_VERSION bash /src/install.sh --no-proxy" \
+su - tester -c "sudo env FISH_VERSION=$FISH_VERSION STARSHIP_VERSION=$STARSHIP_VERSION ATUIN_VERSION=$ATUIN_VERSION ZOXIDE_VERSION=$ZOXIDE_VERSION FZF_VERSION=$FZF_VERSION LSD_VERSION=$LSD_VERSION bash /src/install.sh --no-proxy" \
     | tee /tmp/rerun.log
 grep -q 'already up to date' /tmp/rerun.log
 grep -q 'starship is up to date' /tmp/rerun.log
 grep -q 'fish is up to date' /tmp/rerun.log
 grep -q 'atuin is up to date' /tmp/rerun.log
 grep -q 'zoxide is up to date' /tmp/rerun.log
+grep -q 'fzf is up to date' /tmp/rerun.log
 grep -q 'lsd is up to date' /tmp/rerun.log
 grep -q 'fonts are up to date' /tmp/rerun.log
 grep -q 'login shell is already fish' /tmp/rerun.log
@@ -93,6 +101,7 @@ echo "=== check and update ==="
 su - tester -c "$install_cmd --check" | tee /tmp/check.log
 grep -q 'all tools are up to date' /tmp/check.log
 su - tester -c "$install_cmd --update" | tee /tmp/update.log
+grep -q 'fzf is up to date' /tmp/update.log
 grep -q 'lsd is up to date' /tmp/update.log
 grep -q 'Update complete' /tmp/update.log
 echo "check/update passed"
