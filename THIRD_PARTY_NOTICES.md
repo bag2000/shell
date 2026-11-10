@@ -36,13 +36,12 @@ SOFTWARE.
 
 ## JetBrainsMono Nerd Font
 
-Installed by `install.sh` at runtime from
-[NikSneMC/JetBrainsMono-Nerd-Font](https://github.com/NikSneMC/JetBrainsMono-Nerd-Font)
-(`main`). The font files are not stored in this repository.
+The `JetBrainsMonoNerdFontMono` files in `fonts/JetBrainsMonoNerdFontMono/`
+are vendored into this repository. `install.sh` installs them from there and
+does not download fonts at runtime.
 
 Copyright 2020 The JetBrains Mono Project Authors
 (https://github.com/JetBrains/JetBrainsMono).
 
 Licensed under the SIL Open Font License, Version 1.1. The full license text is
-available at
-https://raw.githubusercontent.com/NikSneMC/JetBrainsMono-Nerd-Font/main/OFL.txt.
+included at `fonts/JetBrainsMonoNerdFontMono/OFL.txt`.

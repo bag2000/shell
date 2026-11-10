@@ -36,9 +36,7 @@ UPDATE=0
 CONFIG_DIR=""
 FONT_DIR=""
 
-# JetBrainsMono Nerd Font source (GitHub only, no package repositories).
-FONT_REPO="NikSneMC/JetBrainsMono-Nerd-Font"
-FONT_BRANCH="main"
+# JetBrainsMono Nerd Font is vendored in the repository under fonts/.
 FONT_BASE="JetBrainsMonoNerdFontMono"
 FONT_STYLES=(
     Thin ThinItalic
@@ -1366,6 +1364,15 @@ install_configs() {
     fi
 }
 
+resolve_fonts() {
+    local script_path="${BASH_SOURCE[0]:-}"
+    [[ -n "$script_path" && -f "$script_path" ]] \
+        || die "run install.sh from the cloned repository (fonts are stored next to it)"
+    FONT_SRC_DIR=$(cd -- "$(dirname -- "$script_path")" && pwd)/fonts/$FONT_BASE
+    [[ -d "$FONT_SRC_DIR" ]] \
+        || die "fonts not found in $FONT_SRC_DIR (run install.sh from the repository)"
+}
+
 fonts_installed() {
     local dir=$1 style
     for style in "${FONT_STYLES[@]}"; do
@@ -1387,24 +1394,18 @@ install_fonts() {
         return 0
     fi
 
-    local tmp
-    tmp=$(mktemp -d "${TMPDIR:-/tmp}/shell-font.XXXXXX")
-    TMP_DIRS+=("$tmp")
-
-    info "Installing JetBrainsMono Nerd Font Mono to $dir"
+    resolve_fonts
     for style in "${FONT_STYLES[@]}"; do
         file="$FONT_BASE-$style.ttf"
-        if ! curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 \
-            --speed-time 30 --speed-limit 1024 -o "$tmp/$file" \
-            "https://raw.githubusercontent.com/${FONT_REPO}/${FONT_BRANCH}/${file}"; then
-            die "failed to download $file (check the proxy)"
-        fi
+        [[ -f "$FONT_SRC_DIR/$file" ]] \
+            || die "font file not found: $FONT_SRC_DIR/$file"
     done
 
+    info "Installing JetBrainsMono Nerd Font Mono to $dir"
     make_dir "$dir"
     for style in "${FONT_STYLES[@]}"; do
         file="$FONT_BASE-$style.ttf"
-        install -m 0644 "$tmp/$file" "$dir/$file"
+        install -m 0644 "$FONT_SRC_DIR/$file" "$dir/$file"
         if ((EUID == 0)) && [[ "$TARGET_USER" != "root" ]]; then
             chown "$TARGET_USER:$TARGET_GROUP" "$dir/$file"
         fi
@@ -1614,7 +1615,7 @@ print_summary() {
     printf '  1. Start a new terminal (or run: exec fish).\n'
     if ((NO_FONT)); then
         printf '  2. Prompt icons need a Nerd Font (skipped with --no-font):\n'
-        printf '     https://github.com/NikSneMC/JetBrainsMono-Nerd-Font\n'
+        printf '     install it from fonts/%s in this repository\n' "$FONT_BASE"
     else
         printf '  2. Select "JetBrainsMono Nerd Font Mono" in your terminal settings\n'
         printf '     so the prompt icons render correctly.\n'

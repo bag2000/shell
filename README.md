@@ -2,8 +2,7 @@
 
 Установщик [fish](https://fishshell.com/) + [starship](https://starship.rs/) +
 [atuin](https://atuin.sh/) + [zoxide](https://github.com/ajeetdsouza/zoxide) +
-[lsd](https://github.com/lsd-rs/lsd) и шрифта
-[JetBrainsMono Nerd Font](https://github.com/NikSneMC/JetBrainsMono-Nerd-Font)
+[lsd](https://github.com/lsd-rs/lsd) и шрифта JetBrainsMono Nerd Font
 с темой [Arch OS](https://github.com/murkl/starship-theme-arch-os)
 и готовой конфигурацией истории команд. Идемпотентно, с бэкапами существующих
 конфигов.
@@ -104,8 +103,9 @@ URL прокси не попадают в лог: выводится `http://***
 8. Скачивает `lsd` с GitHub Releases в `~/.local/bin` (только готовый бинарник,
    не из пакетного репозитория дистрибутива). Для неподдерживаемых архитектур
    шаг пропускается.
-9. Скачивает шрифт JetBrainsMono Nerd Font Mono с GitHub и ставит его в
-   `~/.local/share/fonts/JetBrainsMonoNerdFontMono` (без пакетных репозиториев).
+9. Ставит вендорный шрифт JetBrainsMono Nerd Font Mono из `fonts/` в
+   `~/.local/share/fonts/JetBrainsMonoNerdFontMono` (без сети и пакетных
+   репозиториев).
 10. Устанавливает конфиги:
    - `~/.config/fish/conf.d/00-shell-setup.fish`
    - `~/.config/starship.toml`
@@ -192,10 +192,9 @@ bash install.sh --update
 ([murkl/starship-theme-arch-os](https://github.com/murkl/starship-theme-arch-os)).
 В ней есть символы Nerd Font.
 
-Установщик скачивает семейство **JetBrainsMono Nerd Font Mono** с GitHub
-([NikSneMC/JetBrainsMono-Nerd-Font](https://github.com/NikSneMC/JetBrainsMono-Nerd-Font)):
-16 начертаний (все веса и курсивы) в
-`~/.local/share/fonts/JetBrainsMonoNerdFontMono`. Пакетные репозитории не
+Установщик берёт вендорное семейство **JetBrainsMono Nerd Font Mono** из
+`fonts/JetBrainsMonoNerdFontMono`: 16 начертаний (все веса и курсивы) ставятся в
+`~/.local/share/fonts/JetBrainsMonoNerdFontMono`. Сеть и пакетные репозитории не
 используются. После установки выберите **JetBrainsMono Nerd Font Mono** в
 настройках терминала.
 
@@ -355,7 +354,8 @@ install.sh                                  # установщик (запуск
 config/fish/conf.d/00-shell-setup.fish      # PATH, starship, atuin, zoxide, аббревиатуры
 config/starship.toml                        # тема Arch OS (Nord)
 config/atuin.toml                           # локальная история, настройки поиска
-THIRD_PARTY_NOTICES.md                      # лицензия темы Arch OS (MIT)
+fonts/JetBrainsMonoNerdFontMono/            # вендорный Nerd Font (16 .ttf + OFL.txt)
+THIRD_PARTY_NOTICES.md                      # лицензии темы Arch OS (MIT) и шрифта (OFL)
 tests/ubuntu.sh                             # smoke-тест в Docker
 ```
 
