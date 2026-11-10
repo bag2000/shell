@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Install fish, starship, atuin and zoxide with a ready-to-use configuration.
+# Install fish, starship, atuin, zoxide and lsd with a ready-to-use configuration.
 #
 # Usage:
 #   git clone https://github.com/bag2000/shell.git
@@ -13,10 +13,11 @@
 
 set -Eeuo pipefail
 
-SCRIPT_VERSION="1.3.1"
+SCRIPT_VERSION="1.4.0"
 STARSHIP_VERSION="${STARSHIP_VERSION:-latest}"
 ATUIN_VERSION="${ATUIN_VERSION:-latest}"
 ZOXIDE_VERSION="${ZOXIDE_VERSION:-latest}"
+LSD_VERSION="${LSD_VERSION:-latest}"
 FISH_VERSION="${FISH_VERSION:-latest}"
 
 # Options.
@@ -25,8 +26,11 @@ NO_CONFIG=0
 NO_STARSHIP=0
 NO_ATUIN=0
 NO_ZOXIDE=0
+NO_LSD=0
 FORCE=0
 DRY_RUN=0
+CHECK=0
+UPDATE=0
 CONFIG_DIR=""
 CLI_PROXY=""
 CLI_ENV_FILE=""
@@ -94,7 +98,7 @@ trap 'on_error "$LINENO" "$?"' ERR
 
 usage() {
     cat <<EOF
-${BOLD}fish + starship + atuin + zoxide installer${RESET} v${SCRIPT_VERSION}
+${BOLD}fish + starship + atuin + zoxide + lsd installer${RESET} v${SCRIPT_VERSION}
 
 Usage:
   git clone https://github.com/bag2000/shell.git
@@ -108,12 +112,18 @@ Options:
   --no-starship          Do not install starship.
   --no-atuin             Do not install atuin.
   --no-zoxide            Do not install zoxide.
-  --force                Reinstall starship, atuin and zoxide even if present.
+  --no-lsd               Do not install lsd.
+  --force                Reinstall starship, atuin, zoxide and lsd even if present.
   --dry-run              Detect the system and print the plan, change nothing.
+  --check                Show installed and latest versions, change nothing.
+                         Exit: 0 up to date, 1 updates available, 2 check failed.
+  --update               Update already installed tools only; do not install
+                         missing components, configs, or change the login shell.
   --config-dir DIR       Use configs from DIR (must contain fish/, starship.toml, atuin.toml).
   --starship-version V   Install a specific starship version (default: latest).
   --atuin-version V      Install a specific atuin version (default: latest).
   --zoxide-version V     Install a specific zoxide version (default: latest).
+  --lsd-version V        Install a specific lsd version (default: latest).
   --fish-version V       Install a specific fish version (default: latest).
   --proxy URL            Use this HTTP(S)/SOCKS proxy for all downloads.
   --no-proxy             Ignore proxy settings from the environment and .env.
@@ -126,6 +136,7 @@ Environment:
   STARSHIP_VERSION   Same as --starship-version.
   ATUIN_VERSION      Same as --atuin-version.
   ZOXIDE_VERSION     Same as --zoxide-version.
+  LSD_VERSION        Same as --lsd-version.
   FISH_VERSION       Same as --fish-version.
   ENV_FILE           Path to an env file with proxy settings.
 
@@ -158,8 +169,11 @@ parse_args() {
             --no-starship) NO_STARSHIP=1 ;;
             --no-atuin) NO_ATUIN=1 ;;
             --no-zoxide) NO_ZOXIDE=1 ;;
+            --no-lsd) NO_LSD=1 ;;
             --force) FORCE=1 ;;
             --dry-run) DRY_RUN=1 ;;
+            --check) CHECK=1 ;;
+            --update) UPDATE=1 ;;
             --proxy)
                 [[ $# -ge 2 ]] || die "--proxy requires a URL"
                 CLI_PROXY=$2
@@ -195,6 +209,11 @@ parse_args() {
                 ZOXIDE_VERSION=$2
                 shift
                 ;;
+            --lsd-version)
+                [[ $# -ge 2 ]] || die "--lsd-version requires a version"
+                LSD_VERSION=$2
+                shift
+                ;;
             --fish-version)
                 [[ $# -ge 2 ]] || die "--fish-version requires a version"
                 FISH_VERSION=$2
@@ -210,6 +229,10 @@ parse_args() {
         esac
         shift
     done
+
+    if ((CHECK && UPDATE)); then
+        die "--check and --update cannot be used together"
+    fi
 }
 
 resolve_env_file() {
@@ -1049,6 +1072,179 @@ install_zoxide() {
     ok "zoxide installed: $bin"
 }
 
+detect_lsd_target() {
+    local arch
+    arch=$(uname -m | tr '[:upper:]' '[:lower:]')
+
+    case "$arch" in
+        amd64) arch="x86_64" ;;
+        arm64) arch="aarch64" ;;
+        armv7*|armv6*) arch="arm" ;;
+        i?86) arch="i686" ;;
+    esac
+
+    if command -v getconf >/dev/null 2>&1; then
+        if [[ "$arch" == "x86_64" && "$(getconf LONG_BIT)" == "32" ]]; then
+            arch="i686"
+        elif [[ "$arch" == "aarch64" && "$(getconf LONG_BIT)" == "32" ]]; then
+            arch="arm"
+        fi
+    fi
+
+    case "$arch" in
+        x86_64|aarch64|i686) printf '%s-unknown-linux-musl' "$arch" ;;
+        arm) printf '%s' "arm-unknown-linux-gnueabihf" ;;
+        *) return 1 ;;
+    esac
+}
+
+resolve_lsd_version() {
+    if [[ -n "$LSD_VERSION" && "$LSD_VERSION" != "latest" ]]; then
+        printf '%s\n' "${LSD_VERSION#v}"
+        return 0
+    fi
+    resolve_latest_version "lsd-rs/lsd"
+}
+
+install_lsd() {
+    if ((NO_LSD)); then
+        info "Skipping lsd (--no-lsd)"
+        return 0
+    fi
+
+    local bin="$TARGET_HOME/.local/bin/lsd"
+    local existing="" current=""
+    if [[ -x "$bin" ]]; then
+        existing=$bin
+    elif command -v lsd >/dev/null 2>&1; then
+        existing=$(command -v lsd)
+    fi
+
+    local target version
+    if ! target=$(detect_lsd_target); then
+        warn "lsd has no prebuilt binary for $(uname -m); skipping"
+        NO_LSD=1
+        return 0
+    fi
+
+    if ! version=$(resolve_lsd_version); then
+        if [[ -n "$existing" ]]; then
+            current=$("$existing" --version 2>/dev/null | awk '{print $2}' | head -n1)
+            warn "could not check the latest lsd version; keeping $existing ($current)"
+            return 0
+        fi
+        die "could not determine the latest lsd version; set LSD_VERSION=x.y.z"
+    fi
+
+    if [[ -n "$existing" ]] && ((!FORCE)); then
+        current=$("$existing" --version 2>/dev/null | awk '{print $2}' | head -n1)
+        if [[ "${version#v}" == "$current" ]]; then
+            ok "lsd is up to date: $existing ($current)"
+            return 0
+        fi
+        info "Updating lsd ${current:-unknown} -> ${version}"
+    fi
+
+    local tmp
+    info "Installing lsd ${version} (${target})"
+    tmp=$(mktemp -d "${TMPDIR:-/tmp}/shell-lsd.XXXXXX")
+    TMP_DIRS+=("$tmp")
+
+    local downloaded=0
+    local candidate
+    if download_release_asset "lsd-rs/lsd" "$version" \
+        "lsd-v${version}-${target}.tar.gz" "$tmp/lsd.tar.gz" 3; then
+        downloaded=1
+    elif [[ "$LSD_VERSION" == "latest" ]]; then
+        warn "could not download lsd ${version}; trying recent releases"
+        while IFS= read -r candidate; do
+            [[ -z "$candidate" || "$candidate" == "$version" ]] && continue
+            info "Trying lsd ${candidate}"
+            if download_release_asset "lsd-rs/lsd" "$candidate" \
+                "lsd-v${candidate}-${target}.tar.gz" "$tmp/lsd.tar.gz" 1; then
+                version=$candidate
+                downloaded=1
+                break
+            fi
+        done < <(list_recent_versions "lsd-rs/lsd")
+    fi
+
+    if ((!downloaded)); then
+        die "failed to download lsd for ${target}; set LSD_VERSION=<version> or check the proxy"
+    fi
+
+    tar -xzf "$tmp/lsd.tar.gz" -C "$tmp"
+    local extracted="$tmp/lsd-v${version}-${target}/lsd"
+    if [[ ! -f "$extracted" ]]; then
+        extracted=$(find "$tmp" -maxdepth 3 -type f -name lsd | head -n1) || true
+    fi
+    [[ -n "$extracted" && -f "$extracted" ]] \
+        || die "the lsd archive did not contain a binary"
+
+    make_dir "$(dirname "$bin")"
+    install -m 0755 "$extracted" "$bin"
+    if ((EUID == 0)) && [[ "$TARGET_USER" != "root" ]]; then
+        chown "$TARGET_USER:$TARGET_GROUP" "$bin"
+    fi
+
+    "$bin" --version
+    ok "lsd installed: $bin"
+}
+
+tool_enabled() {
+    case "$1" in
+        starship) [[ $NO_STARSHIP -eq 0 ]] ;;
+        atuin) [[ $NO_ATUIN -eq 0 ]] ;;
+        zoxide) [[ $NO_ZOXIDE -eq 0 ]] ;;
+        lsd) [[ $NO_LSD -eq 0 ]] ;;
+        *) return 0 ;;
+    esac
+}
+
+tool_bin() {
+    local name=$1
+    if [[ "$name" == "fish" ]]; then
+        if [[ -x "/usr/local/bin/fish" ]]; then
+            printf '%s' "/usr/local/bin/fish"
+        elif [[ -x "$TARGET_HOME/.local/bin/fish" ]]; then
+            printf '%s' "$TARGET_HOME/.local/bin/fish"
+        elif command -v fish >/dev/null 2>&1; then
+            command -v fish
+        else
+            return 1
+        fi
+    elif [[ -x "$TARGET_HOME/.local/bin/$name" ]]; then
+        printf '%s' "$TARGET_HOME/.local/bin/$name"
+    elif command -v "$name" >/dev/null 2>&1; then
+        command -v "$name"
+    else
+        return 1
+    fi
+}
+
+tool_current_version() {
+    local name=$1 bin version
+    bin=$(tool_bin "$name") || return 1
+    if [[ "$name" == "fish" ]]; then
+        version=$("$bin" --version 2>/dev/null | awk '{print $3}' | head -n1)
+    else
+        version=$("$bin" --version 2>/dev/null | awk '{print $2}' | head -n1)
+    fi
+    [[ -n "$version" ]] || return 1
+    printf '%s' "$version"
+}
+
+resolve_tool_version() {
+    case "$1" in
+        fish) resolve_fish_version ;;
+        starship) resolve_starship_version ;;
+        atuin) resolve_atuin_version ;;
+        zoxide) resolve_zoxide_version ;;
+        lsd) resolve_lsd_version ;;
+        *) return 1 ;;
+    esac
+}
+
 make_dir() {
     local dir=$1
 
@@ -1183,7 +1379,7 @@ setup_shell() {
 }
 
 print_plan() {
-    local fish_state starship_state atuin_state zoxide_state config_state proxy_state
+    local fish_state starship_state atuin_state zoxide_state lsd_state config_state proxy_state
     if [[ -x "/usr/local/bin/fish" ]]; then
         FISH_BIN="/usr/local/bin/fish"
     else
@@ -1221,6 +1417,15 @@ print_plan() {
     else
         zoxide_state="no binary for $(uname -m); will skip"
     fi
+    if ((NO_LSD)); then
+        lsd_state="skipped"
+    elif command -v lsd >/dev/null 2>&1 || [[ -x "$TARGET_HOME/.local/bin/lsd" ]]; then
+        lsd_state="already installed"
+    elif detect_lsd_target >/dev/null 2>&1; then
+        lsd_state="will install to $TARGET_HOME/.local/bin/lsd"
+    else
+        lsd_state="no binary for $(uname -m); will skip"
+    fi
     if ((NO_CONFIG)); then
         config_state="skipped"
     elif ((NO_ATUIN)) || [[ "$atuin_state" == no\ binary* ]]; then
@@ -1244,6 +1449,7 @@ ${BOLD}Installation plan${RESET}
   starship     : $starship_state
   atuin        : $atuin_state
   zoxide       : $zoxide_state
+  lsd          : $lsd_state
   configs      : $config_state
   proxy        : $proxy_state
   no proxy for : ${NO_PROXY:-none}
@@ -1284,6 +1490,15 @@ print_summary() {
     else
         printf '  zoxide    : not installed\n'
     fi
+    if ((NO_LSD)); then
+        printf '  lsd       : skipped\n'
+    elif [[ -x "$TARGET_HOME/.local/bin/lsd" ]]; then
+        printf '  lsd       : %s\n' "$TARGET_HOME/.local/bin/lsd"
+    elif command -v lsd >/dev/null 2>&1; then
+        printf '  lsd       : %s\n' "$(command -v lsd)"
+    else
+        printf '  lsd       : not installed\n'
+    fi
     if ((NO_CONFIG)); then
         printf '  configs   : skipped\n'
     else
@@ -1307,6 +1522,107 @@ print_summary() {
     printf '\n'
 }
 
+check_versions() {
+    local name current latest status
+    local outdated=0 failed=0
+
+    printf '\n%sVersion check%s\n' "$BOLD" "$RESET"
+    printf '  %-10s %-14s %-14s %s\n' "tool" "installed" "latest" "status"
+
+    for name in fish starship atuin zoxide lsd; do
+        tool_enabled "$name" || continue
+
+        if ! latest=$(resolve_tool_version "$name"); then
+            current=$(tool_current_version "$name" || true)
+            [[ -n "$current" ]] || current="-"
+            printf '  %-10s %-14s %-14s %s\n' \
+                "$name" "$current" "?" "check failed"
+            failed=1
+            continue
+        fi
+        latest=${latest#v}
+
+        if current=$(tool_current_version "$name"); then
+            if [[ "$current" == "$latest" ]]; then
+                status="up to date"
+            else
+                status="update available"
+                outdated=1
+            fi
+        else
+            current="-"
+            status="not installed"
+            outdated=1
+        fi
+
+        printf '  %-10s %-14s %-14s %s\n' "$name" "$current" "$latest" "$status"
+    done
+
+    printf '\n'
+    if ((failed)); then
+        warn "could not check some versions (GitHub unavailable?)"
+        return 2
+    fi
+    if ((outdated)); then
+        info "updates available; run: bash install.sh --update"
+        return 1
+    fi
+    ok "all tools are up to date"
+    return 0
+}
+
+ensure_update_prereqs() {
+    local cmd missing=()
+    for cmd in curl tar gzip xz; do
+        command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
+    done
+    if ((${#missing[@]})); then
+        die "missing prerequisites: ${missing[*]}; run install.sh first"
+    fi
+}
+
+update_tools() {
+    local name
+    for name in fish starship atuin zoxide lsd; do
+        if ! tool_enabled "$name"; then
+            info "Skipping $name"
+            continue
+        fi
+        if ! tool_bin "$name" >/dev/null 2>&1; then
+            ok "$name is not installed; skipping (run install.sh to install it)"
+            continue
+        fi
+        case "$name" in
+            fish)
+                if ! detect_fish_target >/dev/null 2>&1; then
+                    warn "no standalone fish binary for $(uname -m); use the package manager"
+                    continue
+                fi
+                install_fish
+                ;;
+            starship) install_starship ;;
+            atuin) install_atuin ;;
+            zoxide) install_zoxide ;;
+            lsd) install_lsd ;;
+        esac
+    done
+}
+
+print_update_summary() {
+    local name current
+    printf '\n'
+    ok "Update complete"
+    for name in fish starship atuin zoxide lsd; do
+        tool_enabled "$name" || continue
+        if current=$(tool_current_version "$name"); then
+            printf '  %-10s %s\n' "$name" "$current"
+        else
+            printf '  %-10s %s\n' "$name" "not installed"
+        fi
+    done
+    printf '\n'
+}
+
 main() {
     parse_args "$@"
     check_platform
@@ -1320,10 +1636,25 @@ main() {
     setup_proxy
 
     detect_target_user
+
+    if ((CHECK)); then
+        local check_status=0
+        check_versions || check_status=$?
+        exit "$check_status"
+    fi
+
     detect_distro
 
     if ((DRY_RUN)); then
         print_plan
+        exit 0
+    fi
+
+    if ((UPDATE)); then
+        detect_sudo
+        ensure_update_prereqs
+        update_tools
+        print_update_summary
         exit 0
     fi
 
@@ -1333,6 +1664,7 @@ main() {
     install_starship
     install_atuin
     install_zoxide
+    install_lsd
     install_configs
     setup_shell
     print_summary

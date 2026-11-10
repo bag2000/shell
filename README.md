@@ -1,7 +1,8 @@
 # shell
 
 Установщик [fish](https://fishshell.com/) + [starship](https://starship.rs/) +
-[atuin](https://atuin.sh/) + [zoxide](https://github.com/ajeetdsouza/zoxide)
+[atuin](https://atuin.sh/) + [zoxide](https://github.com/ajeetdsouza/zoxide) +
+[lsd](https://github.com/lsd-rs/lsd)
 с темой [Arch OS](https://github.com/murkl/starship-theme-arch-os)
 и готовой конфигурацией истории команд. Идемпотентно, с бэкапами существующих
 конфигов.
@@ -57,7 +58,7 @@ NO_PROXY=localhost,127.0.0.1,::1,192.168.0.0/16
 Можно указать один адрес — `PROXY=proxy.example.com:8080`. Схема `http://` добавится
 автоматически, значение применится к HTTP, HTTPS и ALL.
 
-Прокси используется для скачивания fish, starship, atuin и zoxide, а также
+Прокси используется для скачивания fish, starship, atuin, zoxide и lsd, а также
 передаётся пакетным менеджерам:
 
 - `apt` — через `Acquire::http::Proxy` / `Acquire::https::Proxy`;
@@ -99,14 +100,17 @@ URL прокси не попадают в лог: выводится `http://***
    (`Ctrl-R` / стрелка вверх). Для неподдерживаемых архитектур шаг пропускается.
 7. Скачивает `zoxide` в `~/.local/bin` и включает `z` / `zi` для быстрого
    перехода по каталогам.
-8. Устанавливает конфиги:
+8. Скачивает `lsd` с GitHub Releases в `~/.local/bin` (только готовый бинарник,
+   не из пакетного репозитория дистрибутива). Для неподдерживаемых архитектур
+   шаг пропускается.
+9. Устанавливает конфиги:
    - `~/.config/fish/conf.d/00-shell-setup.fish`
    - `~/.config/starship.toml`
    - `~/.config/atuin/config.toml`
    (с учётом `XDG_CONFIG_HOME`, если он задан).
-9. Регистрирует fish в `/etc/shells` и меняет login shell через `chsh`.
+10. Регистрирует fish в `/etc/shells` и меняет login shell через `chsh`.
 
-При повторном запуске fish, starship, atuin и zoxide проверяются на GitHub:
+При повторном запуске fish, starship, atuin, zoxide и lsd проверяются на GitHub:
 если установлена не последняя версия, она обновляется. Если GitHub временно
 недоступен, уже установленные бинарники остаются нетронутыми.
 
@@ -128,8 +132,8 @@ URL прокси не попадают в лог: выводится `http://***
 # Посмотреть план без изменений в системе
 bash install.sh --dry-run
 
-# Поставить только fish, без starship, atuin, zoxide и конфигов
-bash install.sh --no-starship --no-atuin --no-zoxide --no-config
+# Поставить только fish, без starship, atuin, zoxide, lsd и конфигов
+bash install.sh --no-starship --no-atuin --no-zoxide --no-lsd --no-config
 
 # Не менять login shell (например, на сервере)
 bash install.sh --no-chsh
@@ -137,11 +141,17 @@ bash install.sh --no-chsh
 # Конкретная версия starship
 STARSHIP_VERSION=1.26.0 bash install.sh
 
-# Без atuin и zoxide
-bash install.sh --no-atuin --no-zoxide
+# Без atuin, zoxide и lsd
+bash install.sh --no-atuin --no-zoxide --no-lsd
 
 # Прокси можно передать флагом вместо .env
 bash install.sh --proxy http://proxy.example.com:8080
+
+# Проверить версии (0 — всё актуально, 1 — есть обновления)
+bash install.sh --check
+
+# Обновить только уже установленные утилиты
+bash install.sh --update
 ```
 
 | Флаг | Описание |
@@ -151,12 +161,16 @@ bash install.sh --proxy http://proxy.example.com:8080
 | `--no-starship` | Не устанавливать starship |
 | `--no-atuin` | Не устанавливать atuin |
 | `--no-zoxide` | Не устанавливать zoxide |
-| `--force` | Переустановить starship, atuin и zoxide, даже если они уже есть |
+| `--no-lsd` | Не устанавливать lsd |
+| `--force` | Переустановить starship, atuin, zoxide и lsd, даже если они уже есть |
 | `--dry-run` | Показать план и выйти, ничего не меняя |
+| `--check` | Показать установленные и последние версии, ничего не меняя |
+| `--update` | Обновить только уже установленные утилиты |
 | `--config-dir DIR` | Взять конфиги из локального каталога `DIR` |
 | `--starship-version V` | Установить указанную версию starship |
 | `--atuin-version V` | Установить указанную версию atuin |
 | `--zoxide-version V` | Установить указанную версию zoxide |
+| `--lsd-version V` | Установить указанную версию lsd |
 | `--fish-version V` | Установить указанную версию fish |
 | `--proxy URL` | Использовать указанный HTTP(S)/SOCKS-прокси |
 | `--no-proxy` | Игнорировать прокси из окружения и `.env` |
@@ -165,7 +179,7 @@ bash install.sh --proxy http://proxy.example.com:8080
 | `--version` | Версия установщика |
 
 Переменные окружения: `STARSHIP_VERSION`, `ATUIN_VERSION`, `ZOXIDE_VERSION`,
-`FISH_VERSION`, `ENV_FILE`.
+`LSD_VERSION`, `FISH_VERSION`, `ENV_FILE`.
 
 ## Иконки в промпте
 
@@ -211,6 +225,44 @@ zi             # интерактивный выбор (требуется fzf)
 Для `zi` установите `fzf` (`sudo apt install fzf`, `sudo dnf install fzf`,
 `sudo pacman -S fzf`).
 
+## lsd
+
+lsd — современная замена `ls` с цветами и иконками. Бинарник ставится в
+`~/.local/bin/lsd` **только с GitHub Releases** ([lsd-rs/lsd](https://github.com/lsd-rs/lsd)),
+пакетный репозиторий дистрибутива не используется.
+
+```bash
+lsd            # список файлов
+lsd -lah       # подробно, включая скрытые
+lsd --tree     # дерево каталогов
+```
+
+Отдельного конфига у lsd нет. При желании замените `ls` на lsd, добавив в
+`~/.config/fish/config.fish`:
+
+```fish
+abbr --add --global ls 'lsd'
+```
+
+## Проверка версий и обновление
+
+```bash
+bash install.sh --check    # только сравнить версии, ничего не менять
+bash install.sh --update   # обновить уже установленные утилиты
+```
+
+`--check` сравнивает установленные версии fish, starship, atuin, zoxide и lsd
+с последними на GitHub и печатает таблицу. Коды возврата:
+
+- `0` — всё актуально;
+- `1` — есть обновления или какая-то утилита не установлена;
+- `2` — не удалось проверить версии (например, GitHub недоступен).
+
+`--update` обновляет только уже установленные компоненты. Отсутствующие утилиты
+он не ставит, конфиги не трогает и login shell не меняет — для полной установки
+запустите `bash install.sh`. Флаги `--no-*`, `--force` и `--*-version` работают
+и в этом режиме.
+
 ## Обновление
 
 ```bash
@@ -219,16 +271,16 @@ git pull
 bash install.sh
 ```
 
-Установщик сверит версии fish, starship, atuin и zoxide с GitHub и обновит их
-при необходимости. Конфиги будут обновлены с бэкапами, если они изменились.
+Установщик сверит версии fish, starship, atuin, zoxide и lsd с GitHub и обновит
+их при необходимости. Конфиги будут обновлены с бэкапами, если они изменились.
 Локальный `.env` при `git pull` не затрагивается.
 
 ## Проверка
 
 Тест поднимает чистый контейнер, создаёт пользователя с passwordless sudo,
-выполняет установку, проверяет fish/starship/atuin/zoxide и конфиги, идемпотентный
-повторный запуск, загрузку прокси из `.env`/`--env-file`, маскирование пароля
-и `--dry-run`.
+выполняет установку, проверяет fish/starship/atuin/zoxide/lsd и конфиги, идемпотентный
+повторный запуск, загрузку прокси из `.env`/`--env-file`, маскирование пароля,
+`--dry-run`, `--check` и `--update`.
 
 ```bash
 ./tests/ubuntu.sh
@@ -255,6 +307,7 @@ rm -f ~/.config/fish/conf.d/00-shell-setup.fish
 rm -f ~/.local/bin/starship
 rm -f ~/.local/bin/atuin
 rm -f ~/.local/bin/zoxide
+rm -f ~/.local/bin/lsd
 sudo rm -f /usr/local/bin/fish
 rm -f ~/.local/bin/fish
 # при желании:
