@@ -21,14 +21,23 @@ if status is-interactive
     # zoxide (smarter cd): z <dir>, zi for interactive selection.
     if type -q zoxide
         zoxide init fish | source
+        abbr --add --global cd z
+    end
+
+    # lsd as a drop-in ls replacement.
+    if type -q lsd
+        abbr --add --global ls lsd
+        abbr --add --global ll 'lsd -lah'
+        abbr --add --global la 'lsd -A'
+    else
+        abbr --add --global ll 'ls -lah'
+        abbr --add --global la 'ls -A'
     end
 
     # No greeting.
     set -g fish_greeting
 
     # Small quality-of-life abbreviations.
-    abbr --add --global ll 'ls -lah'
-    abbr --add --global la 'ls -A'
     abbr --add --global g git
     abbr --add --global gs 'git status'
     abbr --add --global gd 'git diff'

@@ -245,7 +245,8 @@ zi             # интерактивный выбор через fzf
 
 Данные хранятся в `~/.local/share/zoxide`. Отдельного конфига у zoxide нет.
 Установщик ставит `fzf` в `~/.local/bin`, так что `zi` работает сразу. Пропустить
-установку fzf: `--no-fzf`.
+установку fzf: `--no-fzf`. При установленном zoxide команда `cd` заменяется
+аббревиатурой на `z` (см. `conf.d/00-shell-setup.fish`).
 
 ## fzf
 
@@ -274,11 +275,15 @@ lsd -lah       # подробно, включая скрытые
 lsd --tree     # дерево каталогов
 ```
 
-Отдельного конфига у lsd нет. При желании замените `ls` на lsd, добавив в
-`~/.config/fish/config.fish`:
+Отдельного конфига у lsd нет. При установленном lsd установщик добавляет
+аббревиатуру `ls` → `lsd`, так что привычный `ls` сразу использует lsd.
+Аббревиатуры `ll` и `la` тоже переключаются на lsd (`lsd -lah`, `lsd -A`);
+если lsd не установлен, они остаются на обычном `ls`.
+Отключить можно, удалив строку из `~/.config/fish/conf.d/00-shell-setup.fish`
+или добавив в `~/.config/fish/config.fish`:
 
 ```fish
-abbr --add --global ls 'lsd'
+abbr --erase ls
 ```
 
 ## Проверка версий и обновление
@@ -372,7 +377,7 @@ sudo apt remove fish        # Debian/Ubuntu
 install.sh                                  # установщик (запуск из репозитория)
 .env.example                                # шаблон настроек прокси
 .gitignore                                  # .env и бэкапы не попадают в git
-config/fish/conf.d/00-shell-setup.fish      # PATH, starship, atuin, zoxide, аббревиатуры
+config/fish/conf.d/00-shell-setup.fish      # PATH, starship, atuin, zoxide, аббревиатуры (cd→z, ls→lsd)
 config/starship.toml                        # тема Arch OS (Nord)
 config/atuin.toml                           # локальная история, настройки поиска
 fonts/JetBrainsMonoNerdFontMono/            # вендорный Nerd Font (16 .ttf + OFL.txt)

@@ -74,7 +74,10 @@ test "$(stat -c %U /home/tester/.local)" = "tester"
 test "$(stat -c %U /home/tester/.config/fish)" = "tester"
 test "$(stat -c %U /home/tester/.config/atuin)" = "tester"
 su - tester -c 'fish -i -c "echo INTERACTIVE_OK"' | grep -q INTERACTIVE_OK
-su - tester -c 'fish -i -c "abbr --show"' | grep -q 'ls -lah'
+su - tester -c 'fish -i -c "abbr --show"' | grep -q 'lsd -lah'
+su - tester -c 'fish -i -c "abbr --show"' | grep -q 'lsd -A'
+su - tester -c 'fish -i -c "abbr --show"' | grep -q ' cd z$'
+su - tester -c 'fish -i -c "abbr --show"' | grep -q ' ls lsd$'
 su - tester -c 'fish -c "starship init fish | source; echo STARSHIP_INIT_OK"' \
     | grep -q STARSHIP_INIT_OK
 su - tester -c 'fish -c "atuin init fish | source; echo ATUIN_INIT_OK"' \
