@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Install fish, starship, atuin, zoxide and lsd with a ready-to-use configuration.
+# Install fish, starship, atuin, zoxide, lsd and a Nerd Font with a ready-to-use
+# configuration.
 #
 # Usage:
 #   git clone https://github.com/bag2000/shell.git
@@ -13,7 +14,7 @@
 
 set -Eeuo pipefail
 
-SCRIPT_VERSION="1.4.0"
+SCRIPT_VERSION="1.5.0"
 STARSHIP_VERSION="${STARSHIP_VERSION:-latest}"
 ATUIN_VERSION="${ATUIN_VERSION:-latest}"
 ZOXIDE_VERSION="${ZOXIDE_VERSION:-latest}"
@@ -27,11 +28,28 @@ NO_STARSHIP=0
 NO_ATUIN=0
 NO_ZOXIDE=0
 NO_LSD=0
+NO_FONT=0
 FORCE=0
 DRY_RUN=0
 CHECK=0
 UPDATE=0
 CONFIG_DIR=""
+FONT_DIR=""
+
+# JetBrainsMono Nerd Font source (GitHub only, no package repositories).
+FONT_REPO="NikSneMC/JetBrainsMono-Nerd-Font"
+FONT_BRANCH="main"
+FONT_BASE="JetBrainsMonoNerdFontMono"
+FONT_STYLES=(
+    Thin ThinItalic
+    ExtraLight ExtraLightItalic
+    Light LightItalic
+    Regular Italic
+    Medium MediumItalic
+    SemiBold SemiBoldItalic
+    Bold BoldItalic
+    ExtraBold ExtraBoldItalic
+)
 CLI_PROXY=""
 CLI_ENV_FILE=""
 DISABLE_PROXY=0
@@ -51,6 +69,7 @@ TARGET_USER=""
 TARGET_HOME=""
 TARGET_GROUP=""
 CONFIG_HOME=""
+DATA_HOME=""
 FISH_BIN=""
 DISTRO_ID=""
 DISTRO_LIKE=""
@@ -98,7 +117,7 @@ trap 'on_error "$LINENO" "$?"' ERR
 
 usage() {
     cat <<EOF
-${BOLD}fish + starship + atuin + zoxide + lsd installer${RESET} v${SCRIPT_VERSION}
+${BOLD}fish + starship + atuin + zoxide + lsd + font installer${RESET} v${SCRIPT_VERSION}
 
 Usage:
   git clone https://github.com/bag2000/shell.git
@@ -113,13 +132,15 @@ Options:
   --no-atuin             Do not install atuin.
   --no-zoxide            Do not install zoxide.
   --no-lsd               Do not install lsd.
-  --force                Reinstall starship, atuin, zoxide and lsd even if present.
+  --no-font              Do not install JetBrainsMono Nerd Font.
+  --force                Reinstall starship, atuin, zoxide, lsd and fonts even if present.
   --dry-run              Detect the system and print the plan, change nothing.
   --check                Show installed and latest versions, change nothing.
                          Exit: 0 up to date, 1 updates available, 2 check failed.
   --update               Update already installed tools only; do not install
                          missing components, configs, or change the login shell.
   --config-dir DIR       Use configs from DIR (must contain fish/, starship.toml, atuin.toml).
+  --font-dir DIR         Install the font to DIR.
   --starship-version V   Install a specific starship version (default: latest).
   --atuin-version V      Install a specific atuin version (default: latest).
   --zoxide-version V     Install a specific zoxide version (default: latest).
@@ -149,6 +170,10 @@ Configs are installed to:
   \$XDG_CONFIG_HOME/starship.toml
   \$XDG_CONFIG_HOME/atuin/config.toml (unless --no-atuin)
 
+Fonts are installed to:
+  \$XDG_DATA_HOME/fonts/JetBrainsMonoNerdFontMono
+  (default: ~/.local/share/fonts/JetBrainsMonoNerdFontMono)
+
 Existing files are backed up with a .bak.TIMESTAMP suffix.
 EOF
 }
@@ -170,6 +195,7 @@ parse_args() {
             --no-atuin) NO_ATUIN=1 ;;
             --no-zoxide) NO_ZOXIDE=1 ;;
             --no-lsd) NO_LSD=1 ;;
+            --no-font) NO_FONT=1 ;;
             --force) FORCE=1 ;;
             --dry-run) DRY_RUN=1 ;;
             --check) CHECK=1 ;;
@@ -192,6 +218,11 @@ parse_args() {
             --config-dir)
                 [[ $# -ge 2 ]] || die "--config-dir requires a directory"
                 CONFIG_DIR=$2
+                shift
+                ;;
+            --font-dir)
+                [[ $# -ge 2 ]] || die "--font-dir requires a directory"
+                FONT_DIR=$2
                 shift
                 ;;
             --starship-version)
@@ -428,6 +459,7 @@ detect_target_user() {
         || die "could not determine home directory for user '$TARGET_USER'"
 
     CONFIG_HOME="${XDG_CONFIG_HOME:-$TARGET_HOME/.config}"
+    DATA_HOME="${XDG_DATA_HOME:-$TARGET_HOME/.local/share}"
 }
 
 detect_distro() {
@@ -1334,6 +1366,63 @@ install_configs() {
     fi
 }
 
+fonts_installed() {
+    local dir=$1 style
+    for style in "${FONT_STYLES[@]}"; do
+        [[ -f "$dir/$FONT_BASE-$style.ttf" ]] || return 1
+    done
+}
+
+install_fonts() {
+    if ((NO_FONT)); then
+        info "Skipping fonts (--no-font)"
+        return 0
+    fi
+
+    local dir=${FONT_DIR:-$DATA_HOME/fonts/$FONT_BASE}
+    local style file
+
+    if fonts_installed "$dir" && ((!FORCE)); then
+        ok "fonts are up to date: $dir"
+        return 0
+    fi
+
+    local tmp
+    tmp=$(mktemp -d "${TMPDIR:-/tmp}/shell-font.XXXXXX")
+    TMP_DIRS+=("$tmp")
+
+    info "Installing JetBrainsMono Nerd Font Mono to $dir"
+    for style in "${FONT_STYLES[@]}"; do
+        file="$FONT_BASE-$style.ttf"
+        if ! curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 \
+            --speed-time 30 --speed-limit 1024 -o "$tmp/$file" \
+            "https://raw.githubusercontent.com/${FONT_REPO}/${FONT_BRANCH}/${file}"; then
+            die "failed to download $file (check the proxy)"
+        fi
+    done
+
+    make_dir "$dir"
+    for style in "${FONT_STYLES[@]}"; do
+        file="$FONT_BASE-$style.ttf"
+        install -m 0644 "$tmp/$file" "$dir/$file"
+        if ((EUID == 0)) && [[ "$TARGET_USER" != "root" ]]; then
+            chown "$TARGET_USER:$TARGET_GROUP" "$dir/$file"
+        fi
+    done
+
+    if command -v fc-cache >/dev/null 2>&1; then
+        fc-cache -f "$dir" >/dev/null 2>&1 \
+            || warn "fc-cache failed for $dir; log out and back in to refresh fonts"
+        if ((EUID == 0)) && [[ "$TARGET_USER" != "root" ]]; then
+            chown -R "$TARGET_USER:$TARGET_GROUP" "$dir"
+        fi
+    else
+        warn "fc-cache not found; install fontconfig or log out and back in"
+    fi
+
+    ok "fonts installed: $dir (${#FONT_STYLES[@]} files)"
+}
+
 setup_shell() {
     if ! grep -qxF "$FISH_BIN" /etc/shells 2>/dev/null; then
         info "Registering $FISH_BIN in /etc/shells"
@@ -1379,7 +1468,7 @@ setup_shell() {
 }
 
 print_plan() {
-    local fish_state starship_state atuin_state zoxide_state lsd_state config_state proxy_state
+    local fish_state starship_state atuin_state zoxide_state lsd_state font_state font_dir config_state proxy_state
     if [[ -x "/usr/local/bin/fish" ]]; then
         FISH_BIN="/usr/local/bin/fish"
     else
@@ -1426,6 +1515,14 @@ print_plan() {
     else
         lsd_state="no binary for $(uname -m); will skip"
     fi
+    font_dir=${FONT_DIR:-$DATA_HOME/fonts/$FONT_BASE}
+    if ((NO_FONT)); then
+        font_state="skipped"
+    elif fonts_installed "$font_dir"; then
+        font_state="already installed ($font_dir)"
+    else
+        font_state="will install to $font_dir"
+    fi
     if ((NO_CONFIG)); then
         config_state="skipped"
     elif ((NO_ATUIN)) || [[ "$atuin_state" == no\ binary* ]]; then
@@ -1450,6 +1547,7 @@ ${BOLD}Installation plan${RESET}
   atuin        : $atuin_state
   zoxide       : $zoxide_state
   lsd          : $lsd_state
+  font         : $font_state
   configs      : $config_state
   proxy        : $proxy_state
   no proxy for : ${NO_PROXY:-none}
@@ -1499,6 +1597,11 @@ print_summary() {
     else
         printf '  lsd       : not installed\n'
     fi
+    if ((NO_FONT)); then
+        printf '  font      : skipped\n'
+    else
+        printf '  font      : %s\n' "${FONT_DIR:-$DATA_HOME/fonts/$FONT_BASE}"
+    fi
     if ((NO_CONFIG)); then
         printf '  configs   : skipped\n'
     else
@@ -1509,8 +1612,13 @@ print_summary() {
     fi
     printf '\nNext steps:\n'
     printf '  1. Start a new terminal (or run: exec fish).\n'
-    printf '  2. For the prompt icons, install a Nerd Font:\n'
-    printf '     https://www.nerdfonts.com/font-downloads (e.g. JetBrainsMono Nerd Font)\n'
+    if ((NO_FONT)); then
+        printf '  2. Prompt icons need a Nerd Font (skipped with --no-font):\n'
+        printf '     https://github.com/NikSneMC/JetBrainsMono-Nerd-Font\n'
+    else
+        printf '  2. Select "JetBrainsMono Nerd Font Mono" in your terminal settings\n'
+        printf '     so the prompt icons render correctly.\n'
+    fi
     local step=3
     if ((!NO_ATUIN)); then
         printf '  %s. Atuin sync is off by default; enable it with: atuin register\n' "$step"
@@ -1665,6 +1773,7 @@ main() {
     install_atuin
     install_zoxide
     install_lsd
+    install_fonts
     install_configs
     setup_shell
     print_summary

@@ -56,6 +56,9 @@ test -x /home/tester/.local/bin/lsd
 if [[ "$LSD_VERSION" != "latest" ]]; then
     test "$(/home/tester/.local/bin/lsd --version | awk '{print $2}')" = "${LSD_VERSION#v}"
 fi
+test -f /home/tester/.local/share/fonts/JetBrainsMonoNerdFontMono/JetBrainsMonoNerdFontMono-Regular.ttf
+test -f /home/tester/.local/share/fonts/JetBrainsMonoNerdFontMono/JetBrainsMonoNerdFontMono-BoldItalic.ttf
+test "$(stat -c %U /home/tester/.local/share/fonts/JetBrainsMonoNerdFontMono)" = "tester"
 test -f /home/tester/.config/fish/conf.d/00-shell-setup.fish
 test -f /home/tester/.config/starship.toml
 test -f /home/tester/.config/atuin/config.toml
@@ -82,6 +85,7 @@ grep -q 'fish is up to date' /tmp/rerun.log
 grep -q 'atuin is up to date' /tmp/rerun.log
 grep -q 'zoxide is up to date' /tmp/rerun.log
 grep -q 'lsd is up to date' /tmp/rerun.log
+grep -q 'fonts are up to date' /tmp/rerun.log
 grep -q 'login shell is already fish' /tmp/rerun.log
 echo "idempotency passed"
 
@@ -137,6 +141,9 @@ grep -q 'zoxide       : skipped' /tmp/nozoxide.log
 su - tester -c 'bash /src/install.sh --dry-run --no-chsh --no-proxy --no-lsd' \
     >/tmp/nolsd.log
 grep -q 'lsd          : skipped' /tmp/nolsd.log
+su - tester -c 'bash /src/install.sh --dry-run --no-chsh --no-proxy --no-font' \
+    >/tmp/nofont.log
+grep -q 'font         : skipped' /tmp/nofont.log
 echo "dry run passed"
 
 echo "ALL TESTS PASSED"

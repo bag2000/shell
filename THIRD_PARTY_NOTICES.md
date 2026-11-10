@@ -33,3 +33,16 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## JetBrainsMono Nerd Font
+
+Installed by `install.sh` at runtime from
+[NikSneMC/JetBrainsMono-Nerd-Font](https://github.com/NikSneMC/JetBrainsMono-Nerd-Font)
+(`main`). The font files are not stored in this repository.
+
+Copyright 2020 The JetBrains Mono Project Authors
+(https://github.com/JetBrains/JetBrainsMono).
+
+Licensed under the SIL Open Font License, Version 1.1. The full license text is
+available at
+https://raw.githubusercontent.com/NikSneMC/JetBrainsMono-Nerd-Font/main/OFL.txt.

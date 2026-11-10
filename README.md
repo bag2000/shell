@@ -2,7 +2,8 @@
 
 Установщик [fish](https://fishshell.com/) + [starship](https://starship.rs/) +
 [atuin](https://atuin.sh/) + [zoxide](https://github.com/ajeetdsouza/zoxide) +
-[lsd](https://github.com/lsd-rs/lsd)
+[lsd](https://github.com/lsd-rs/lsd) и шрифта
+[JetBrainsMono Nerd Font](https://github.com/NikSneMC/JetBrainsMono-Nerd-Font)
 с темой [Arch OS](https://github.com/murkl/starship-theme-arch-os)
 и готовой конфигурацией истории команд. Идемпотентно, с бэкапами существующих
 конфигов.
@@ -103,12 +104,14 @@ URL прокси не попадают в лог: выводится `http://***
 8. Скачивает `lsd` с GitHub Releases в `~/.local/bin` (только готовый бинарник,
    не из пакетного репозитория дистрибутива). Для неподдерживаемых архитектур
    шаг пропускается.
-9. Устанавливает конфиги:
+9. Скачивает шрифт JetBrainsMono Nerd Font Mono с GitHub и ставит его в
+   `~/.local/share/fonts/JetBrainsMonoNerdFontMono` (без пакетных репозиториев).
+10. Устанавливает конфиги:
    - `~/.config/fish/conf.d/00-shell-setup.fish`
    - `~/.config/starship.toml`
    - `~/.config/atuin/config.toml`
    (с учётом `XDG_CONFIG_HOME`, если он задан).
-10. Регистрирует fish в `/etc/shells` и меняет login shell через `chsh`.
+11. Регистрирует fish в `/etc/shells` и меняет login shell через `chsh`.
 
 При повторном запуске fish, starship, atuin, zoxide и lsd проверяются на GitHub:
 если установлена не последняя версия, она обновляется. Если GitHub временно
@@ -132,8 +135,8 @@ URL прокси не попадают в лог: выводится `http://***
 # Посмотреть план без изменений в системе
 bash install.sh --dry-run
 
-# Поставить только fish, без starship, atuin, zoxide, lsd и конфигов
-bash install.sh --no-starship --no-atuin --no-zoxide --no-lsd --no-config
+# Поставить только fish, без starship, atuin, zoxide, lsd, шрифта и конфигов
+bash install.sh --no-starship --no-atuin --no-zoxide --no-lsd --no-font --no-config
 
 # Не менять login shell (например, на сервере)
 bash install.sh --no-chsh
@@ -162,11 +165,13 @@ bash install.sh --update
 | `--no-atuin` | Не устанавливать atuin |
 | `--no-zoxide` | Не устанавливать zoxide |
 | `--no-lsd` | Не устанавливать lsd |
-| `--force` | Переустановить starship, atuin, zoxide и lsd, даже если они уже есть |
+| `--no-font` | Не устанавливать шрифт JetBrainsMono Nerd Font |
+| `--force` | Переустановить starship, atuin, zoxide, lsd и шрифт, даже если они уже есть |
 | `--dry-run` | Показать план и выйти, ничего не меняя |
 | `--check` | Показать установленные и последние версии, ничего не меняя |
 | `--update` | Обновить только уже установленные утилиты |
 | `--config-dir DIR` | Взять конфиги из локального каталога `DIR` |
+| `--font-dir DIR` | Установить шрифт в каталог `DIR` |
 | `--starship-version V` | Установить указанную версию starship |
 | `--atuin-version V` | Установить указанную версию atuin |
 | `--zoxide-version V` | Установить указанную версию zoxide |
@@ -181,13 +186,26 @@ bash install.sh --update
 Переменные окружения: `STARSHIP_VERSION`, `ATUIN_VERSION`, `ZOXIDE_VERSION`,
 `LSD_VERSION`, `FISH_VERSION`, `ENV_FILE`.
 
-## Иконки в промпте
+## Шрифт и иконки в промпте
 
 Промпт использует тему **Arch OS** (Nord)
 ([murkl/starship-theme-arch-os](https://github.com/murkl/starship-theme-arch-os)).
-В ней есть символы Nerd Font. Чтобы они отображались корректно, установите шрифт,
-например [JetBrainsMono Nerd Font](https://www.nerdfonts.com/font-downloads), и
-выберите его в настройках терминала.
+В ней есть символы Nerd Font.
+
+Установщик скачивает семейство **JetBrainsMono Nerd Font Mono** с GitHub
+([NikSneMC/JetBrainsMono-Nerd-Font](https://github.com/NikSneMC/JetBrainsMono-Nerd-Font)):
+16 начертаний (все веса и курсивы) в
+`~/.local/share/fonts/JetBrainsMonoNerdFontMono`. Пакетные репозитории не
+используются. После установки выберите **JetBrainsMono Nerd Font Mono** в
+настройках терминала.
+
+Если `fc-cache` недоступен, установите `fontconfig` и обновите кэш:
+
+```bash
+fc-cache -f
+```
+
+Пропустить установку шрифта: `--no-font`. Свой каталог: `--font-dir DIR`.
 
 Если шрифт ставить не хочется, замените символы в `~/.config/starship.toml`
 (например, `symbol = " "` у `git_branch`) на обычный текст. Тема распространяется
@@ -259,9 +277,9 @@ bash install.sh --update   # обновить уже установленные 
 - `2` — не удалось проверить версии (например, GitHub недоступен).
 
 `--update` обновляет только уже установленные компоненты. Отсутствующие утилиты
-он не ставит, конфиги не трогает и login shell не меняет — для полной установки
-запустите `bash install.sh`. Флаги `--no-*`, `--force` и `--*-version` работают
-и в этом режиме.
+он не ставит, конфиги и шрифт не трогает, login shell не меняет — для полной
+установки запустите `bash install.sh`. Флаги `--no-*`, `--force` и `--*-version`
+работают и в этом режиме.
 
 ## Обновление
 
@@ -278,9 +296,9 @@ bash install.sh
 ## Проверка
 
 Тест поднимает чистый контейнер, создаёт пользователя с passwordless sudo,
-выполняет установку, проверяет fish/starship/atuin/zoxide/lsd и конфиги, идемпотентный
-повторный запуск, загрузку прокси из `.env`/`--env-file`, маскирование пароля,
-`--dry-run`, `--check` и `--update`.
+выполняет установку, проверяет fish/starship/atuin/zoxide/lsd, шрифт и конфиги,
+идемпотентный повторный запуск, загрузку прокси из `.env`/`--env-file`,
+маскирование пароля, `--dry-run`, `--check` и `--update`.
 
 ```bash
 ./tests/ubuntu.sh
@@ -308,6 +326,8 @@ rm -f ~/.local/bin/starship
 rm -f ~/.local/bin/atuin
 rm -f ~/.local/bin/zoxide
 rm -f ~/.local/bin/lsd
+rm -rf ~/.local/share/fonts/JetBrainsMonoNerdFontMono
+fc-cache -f
 sudo rm -f /usr/local/bin/fish
 rm -f ~/.local/bin/fish
 # при желании:
