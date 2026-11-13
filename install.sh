@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# Install fish, starship, atuin, zoxide, fzf, lsd and a Nerd Font with a ready-to-use
-# configuration.
+# Install fish, starship, atuin, zoxide, fzf, lsd, zellij and a Nerd Font with a
+# ready-to-use configuration.
 #
 # Usage:
 #   git clone https://github.com/bag2000/shell.git
@@ -14,12 +14,13 @@
 
 set -Eeuo pipefail
 
-SCRIPT_VERSION="1.6.0"
+SCRIPT_VERSION="1.7.0"
 STARSHIP_VERSION="${STARSHIP_VERSION:-latest}"
 ATUIN_VERSION="${ATUIN_VERSION:-latest}"
 ZOXIDE_VERSION="${ZOXIDE_VERSION:-latest}"
 FZF_VERSION="${FZF_VERSION:-latest}"
 LSD_VERSION="${LSD_VERSION:-latest}"
+ZELLIJ_VERSION="${ZELLIJ_VERSION:-latest}"
 FISH_VERSION="${FISH_VERSION:-latest}"
 
 # Options.
@@ -30,6 +31,7 @@ NO_ATUIN=0
 NO_ZOXIDE=0
 NO_FZF=0
 NO_LSD=0
+NO_ZELLIJ=0
 NO_FONT=0
 FORCE=0
 DRY_RUN=0
@@ -117,7 +119,7 @@ trap 'on_error "$LINENO" "$?"' ERR
 
 usage() {
     cat <<EOF
-${BOLD}fish + starship + atuin + zoxide + fzf + lsd + font installer${RESET} v${SCRIPT_VERSION}
+${BOLD}fish + starship + atuin + zoxide + fzf + lsd + zellij + font installer${RESET} v${SCRIPT_VERSION}
 
 Usage:
   git clone https://github.com/bag2000/shell.git
@@ -133,8 +135,10 @@ Options:
   --no-zoxide            Do not install zoxide.
   --no-fzf               Do not install fzf.
   --no-lsd               Do not install lsd.
+  --no-zellij            Do not install zellij.
   --no-font              Do not install JetBrainsMono Nerd Font.
-  --force                Reinstall starship, atuin, zoxide, fzf, lsd and fonts even if present.
+  --force                Reinstall starship, atuin, zoxide, fzf, lsd, zellij and
+                         fonts even if present.
   --dry-run              Detect the system and print the plan, change nothing.
   --check                Show installed and latest versions, change nothing.
                          Exit: 0 up to date, 1 updates available, 2 check failed.
@@ -147,6 +151,7 @@ Options:
   --zoxide-version V     Install a specific zoxide version (default: latest).
   --fzf-version V        Install a specific fzf version (default: latest).
   --lsd-version V        Install a specific lsd version (default: latest).
+  --zellij-version V     Install a specific zellij version (default: latest).
   --fish-version V       Install a specific fish version (default: latest).
   --proxy URL            Use this HTTP(S)/SOCKS proxy for all downloads.
   --no-proxy             Ignore proxy settings from the environment and .env.
@@ -161,6 +166,7 @@ Environment:
   ZOXIDE_VERSION     Same as --zoxide-version.
   FZF_VERSION        Same as --fzf-version.
   LSD_VERSION        Same as --lsd-version.
+  ZELLIJ_VERSION     Same as --zellij-version.
   FISH_VERSION       Same as --fish-version.
   ENV_FILE           Path to an env file with proxy settings.
 
@@ -199,6 +205,7 @@ parse_args() {
             --no-zoxide) NO_ZOXIDE=1 ;;
             --no-fzf) NO_FZF=1 ;;
             --no-lsd) NO_LSD=1 ;;
+            --no-zellij) NO_ZELLIJ=1 ;;
             --no-font) NO_FONT=1 ;;
             --force) FORCE=1 ;;
             --dry-run) DRY_RUN=1 ;;
@@ -252,6 +259,11 @@ parse_args() {
             --lsd-version)
                 [[ $# -ge 2 ]] || die "--lsd-version requires a version"
                 LSD_VERSION=$2
+                shift
+                ;;
+            --zellij-version)
+                [[ $# -ge 2 ]] || die "--zellij-version requires a version"
+                ZELLIJ_VERSION=$2
                 shift
                 ;;
             --fish-version)
@@ -1346,6 +1358,119 @@ install_lsd() {
     ok "lsd installed: $bin"
 }
 
+detect_zellij_target() {
+    local arch
+    arch=$(uname -m | tr '[:upper:]' '[:lower:]')
+
+    case "$arch" in
+        amd64) arch="x86_64" ;;
+        arm64) arch="aarch64" ;;
+    esac
+
+    if command -v getconf >/dev/null 2>&1 \
+        && [[ "$(getconf LONG_BIT)" == "32" ]]; then
+        return 1
+    fi
+
+    case "$arch" in
+        x86_64|aarch64) printf '%s-unknown-linux-musl' "$arch" ;;
+        *) return 1 ;;
+    esac
+}
+
+resolve_zellij_version() {
+    if [[ -n "$ZELLIJ_VERSION" && "$ZELLIJ_VERSION" != "latest" ]]; then
+        printf '%s\n' "${ZELLIJ_VERSION#v}"
+        return 0
+    fi
+    resolve_latest_version "zellij-org/zellij"
+}
+
+install_zellij() {
+    if ((NO_ZELLIJ)); then
+        info "Skipping zellij (--no-zellij)"
+        return 0
+    fi
+
+    local bin="$TARGET_HOME/.local/bin/zellij"
+    local existing="" current=""
+    if [[ -x "$bin" ]]; then
+        existing=$bin
+    elif command -v zellij >/dev/null 2>&1; then
+        existing=$(command -v zellij)
+    fi
+
+    local target version
+    if ! target=$(detect_zellij_target); then
+        warn "zellij has no prebuilt binary for $(uname -m); skipping"
+        NO_ZELLIJ=1
+        return 0
+    fi
+
+    if ! version=$(resolve_zellij_version); then
+        if [[ -n "$existing" ]]; then
+            current=$("$existing" --version 2>/dev/null | awk '{print $2}' | head -n1)
+            warn "could not check the latest zellij version; keeping $existing ($current)"
+            return 0
+        fi
+        die "could not determine the latest zellij version; set ZELLIJ_VERSION=x.y.z"
+    fi
+
+    if [[ -n "$existing" ]] && ((!FORCE)); then
+        current=$("$existing" --version 2>/dev/null | awk '{print $2}' | head -n1)
+        if [[ "${version#v}" == "$current" ]]; then
+            ok "zellij is up to date: $existing ($current)"
+            return 0
+        fi
+        info "Updating zellij ${current:-unknown} -> ${version}"
+    fi
+
+    local tmp
+    info "Installing zellij ${version} (${target})"
+    tmp=$(mktemp -d "${TMPDIR:-/tmp}/shell-zellij.XXXXXX")
+    TMP_DIRS+=("$tmp")
+
+    local downloaded=0
+    local candidate
+    if download_release_asset "zellij-org/zellij" "$version" \
+        "zellij-${target}.tar.gz" "$tmp/zellij.tar.gz" 3; then
+        downloaded=1
+    elif [[ "$ZELLIJ_VERSION" == "latest" ]]; then
+        warn "could not download zellij ${version}; trying recent releases"
+        while IFS= read -r candidate; do
+            [[ -z "$candidate" || "$candidate" == "$version" ]] && continue
+            info "Trying zellij ${candidate}"
+            if download_release_asset "zellij-org/zellij" "$candidate" \
+                "zellij-${target}.tar.gz" "$tmp/zellij.tar.gz" 1; then
+                version=$candidate
+                downloaded=1
+                break
+            fi
+        done < <(list_recent_versions "zellij-org/zellij")
+    fi
+
+    if ((!downloaded)); then
+        die "failed to download zellij for ${target}; set ZELLIJ_VERSION=<version> or check the proxy"
+    fi
+
+    tar -xzf "$tmp/zellij.tar.gz" -C "$tmp"
+    local extracted="$tmp/zellij"
+    if [[ ! -f "$extracted" ]]; then
+        extracted=$(find "$tmp" -maxdepth 3 -type f -name zellij | head -n1) || true
+    fi
+    [[ -n "$extracted" && -f "$extracted" ]] \
+        || die "the zellij archive did not contain a binary"
+
+    make_dir "$(dirname "$bin")"
+    install -m 0755 "$extracted" "$bin"
+    if ((EUID == 0)) && [[ "$TARGET_USER" != "root" ]]; then
+        chown "$TARGET_USER:$TARGET_GROUP" "$bin"
+    fi
+
+    "$bin" --version
+    ok "zellij installed: $bin"
+}
+
 tool_enabled() {
     case "$1" in
         starship) [[ $NO_STARSHIP -eq 0 ]] ;;
@@ -1353,6 +1478,7 @@ tool_enabled() {
         zoxide) [[ $NO_ZOXIDE -eq 0 ]] ;;
         fzf) [[ $NO_FZF -eq 0 ]] ;;
         lsd) [[ $NO_LSD -eq 0 ]] ;;
+        zellij) [[ $NO_ZELLIJ -eq 0 ]] ;;
         *) return 0 ;;
     esac
 }
@@ -1400,6 +1526,7 @@ resolve_tool_version() {
         zoxide) resolve_zoxide_version ;;
         fzf) resolve_fzf_version ;;
         lsd) resolve_lsd_version ;;
+        zellij) resolve_zellij_version ;;
         *) return 1 ;;
     esac
 }
@@ -1598,7 +1725,7 @@ setup_shell() {
 }
 
 print_plan() {
-    local fish_state starship_state atuin_state zoxide_state fzf_state lsd_state font_state font_dir config_state proxy_state
+    local fish_state starship_state atuin_state zoxide_state fzf_state lsd_state zellij_state font_state font_dir config_state proxy_state
     if [[ -x "/usr/local/bin/fish" ]]; then
         FISH_BIN="/usr/local/bin/fish"
     else
@@ -1654,6 +1781,15 @@ print_plan() {
     else
         lsd_state="no binary for $(uname -m); will skip"
     fi
+    if ((NO_ZELLIJ)); then
+        zellij_state="skipped"
+    elif command -v zellij >/dev/null 2>&1 || [[ -x "$TARGET_HOME/.local/bin/zellij" ]]; then
+        zellij_state="already installed"
+    elif detect_zellij_target >/dev/null 2>&1; then
+        zellij_state="will install to $TARGET_HOME/.local/bin/zellij"
+    else
+        zellij_state="no binary for $(uname -m); will skip"
+    fi
     font_dir=${FONT_DIR:-$DATA_HOME/fonts/$FONT_BASE}
     if ((NO_FONT)); then
         font_state="skipped"
@@ -1687,6 +1823,7 @@ ${BOLD}Installation plan${RESET}
   zoxide       : $zoxide_state
   fzf          : $fzf_state
   lsd          : $lsd_state
+  zellij       : $zellij_state
   font         : $font_state
   configs      : $config_state
   proxy        : $proxy_state
@@ -1746,6 +1883,15 @@ print_summary() {
     else
         printf '  lsd       : not installed\n'
     fi
+    if ((NO_ZELLIJ)); then
+        printf '  zellij    : skipped\n'
+    elif [[ -x "$TARGET_HOME/.local/bin/zellij" ]]; then
+        printf '  zellij    : %s\n' "$TARGET_HOME/.local/bin/zellij"
+    elif command -v zellij >/dev/null 2>&1; then
+        printf '  zellij    : %s\n' "$(command -v zellij)"
+    else
+        printf '  zellij    : not installed\n'
+    fi
     if ((NO_FONT)); then
         printf '  font      : skipped\n'
     else
@@ -1786,7 +1932,7 @@ check_versions() {
     printf '\n%sVersion check%s\n' "$BOLD" "$RESET"
     printf '  %-10s %-14s %-14s %s\n' "tool" "installed" "latest" "status"
 
-    for name in fish starship atuin zoxide fzf lsd; do
+    for name in fish starship atuin zoxide fzf lsd zellij; do
         tool_enabled "$name" || continue
 
         if ! latest=$(resolve_tool_version "$name"); then
@@ -1840,7 +1986,7 @@ ensure_update_prereqs() {
 
 update_tools() {
     local name
-    for name in fish starship atuin zoxide fzf lsd; do
+    for name in fish starship atuin zoxide fzf lsd zellij; do
         if ! tool_enabled "$name"; then
             info "Skipping $name"
             continue
@@ -1862,6 +2008,7 @@ update_tools() {
             zoxide) install_zoxide ;;
             fzf) install_fzf ;;
             lsd) install_lsd ;;
+            zellij) install_zellij ;;
         esac
     done
 }
@@ -1870,7 +2017,7 @@ print_update_summary() {
     local name current
     printf '\n'
     ok "Update complete"
-    for name in fish starship atuin zoxide fzf lsd; do
+    for name in fish starship atuin zoxide fzf lsd zellij; do
         tool_enabled "$name" || continue
         if current=$(tool_current_version "$name"); then
             printf '  %-10s %s\n' "$name" "$current"
@@ -1924,6 +2071,7 @@ main() {
     install_zoxide
     install_fzf
     install_lsd
+    install_zellij
     install_fonts
     install_configs
     setup_shell
