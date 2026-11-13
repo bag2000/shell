@@ -115,7 +115,8 @@ URL прокси не попадают в лог: выводится `http://***
     репозиториев).
 12. Устанавливает конфиги:
     - `~/.config/fish/conf.d/00-shell-setup.fish` (PATH, starship, atuin, zoxide,
-      lsd, автозапуск zellij)
+      lsd)
+    - `~/.config/fish/conf.d/90-zellij-autostart.fish` (автозапуск zellij)
     - `~/.config/starship.toml`
     - `~/.config/atuin/config.toml`
     - `~/.config/zellij/config.kdl` и `~/.config/zellij/themes/nord-gap.kdl`
@@ -177,6 +178,7 @@ bash install.sh --update
 | `--no-fzf` | Не устанавливать fzf |
 | `--no-lsd` | Не устанавливать lsd |
 | `--no-zellij` | Не устанавливать zellij |
+| `--no-zellij-autostart` | Не включать автозапуск zellij в новых терминалах |
 | `--no-font` | Не устанавливать шрифт JetBrainsMono Nerd Font |
 | `--force` | Переустановить starship, atuin, zoxide, fzf, lsd, zellij и шрифт, даже если они уже есть |
 | `--dry-run` | Показать план и выйти, ничего не меняя |
@@ -313,7 +315,11 @@ zellij attach       # подключиться к существующей се�
 zellij --version
 ```
 
-Отключить автозапуск:
+Отключить автозапуск при установке: `--no-zellij-autostart` — файл
+`~/.config/fish/conf.d/90-zellij-autostart.fish` не устанавливается, а если он
+уже был, при повторном запуске удаляется с бэкапом `.bak.*`.
+
+Отключить автозапуск для уже установленной системы:
 
 ```fish
 # в ~/.config/fish/config.fish
@@ -403,6 +409,7 @@ docker run --rm -v "$PWD:/mnt:ro" koalaman/shellcheck:stable /mnt/install.sh
 ```bash
 chsh -s /bin/bash
 rm -f ~/.config/fish/conf.d/00-shell-setup.fish
+rm -f ~/.config/fish/conf.d/90-zellij-autostart.fish
 rm -f ~/.local/bin/starship
 rm -f ~/.local/bin/atuin
 rm -f ~/.local/bin/zoxide
@@ -437,7 +444,8 @@ sudo apt remove fish        # Debian/Ubuntu
 install.sh                                  # установщик (запуск из репозитория)
 .env.example                                # шаблон настроек прокси
 .gitignore                                  # .env и бэкапы не попадают в git
-config/fish/conf.d/00-shell-setup.fish      # PATH, starship, atuin, zoxide, lsd, автозапуск zellij (cd→z, ls→lsd)
+config/fish/conf.d/00-shell-setup.fish      # PATH, starship, atuin, zoxide, lsd (cd→z, ls→lsd)
+config/fish/conf.d/90-zellij-autostart.fish # автозапуск zellij в новых терминалах
 config/starship.toml                        # тема Arch OS (Nord)
 config/atuin.toml                           # локальная история, настройки поиска
 config/zellij/config.kdl                    # Zellij: полные рамки, зазоры, автозапуск

@@ -99,7 +99,8 @@ su - tester -c 'fish -c "zoxide init fish | source; echo ZOXIDE_INIT_OK"' \
     | grep -q ZOXIDE_INIT_OK
 
 # zellij autostart: only in a real terminal, opt-out via ZELLIJ_AUTO_START=0.
-grep -q 'exec zellij' /home/tester/.config/fish/conf.d/00-shell-setup.fish
+test -f /home/tester/.config/fish/conf.d/90-zellij-autostart.fish
+grep -q 'exec zellij' /home/tester/.config/fish/conf.d/90-zellij-autostart.fish
 mkdir -p /tmp/fakebin
 printf '#!/bin/sh\necho ZELLIJ_AUTOSTART_OK\n' >/tmp/fakebin/zellij
 chmod 755 /tmp/fakebin/zellij
@@ -200,14 +201,25 @@ grep -q 'lsd          : skipped' /tmp/nolsd.log
 su - tester -c 'bash /src/install.sh --dry-run --no-chsh --no-proxy --no-zellij' \
     >/tmp/nozellij.log
 grep -q 'zellij       : skipped' /tmp/nozellij.log
+grep -q 'zellij auto  : skipped' /tmp/nozellij.log
 if grep -q 'zellij/config.kdl' /tmp/nozellij.log; then
     echo "zellij config should be skipped with --no-zellij" >&2
     exit 1
 fi
+su - tester -c 'bash /src/install.sh --dry-run --no-chsh --no-proxy --no-zellij-autostart' \
+    >/tmp/nozellijauto.log
+grep -q 'zellij auto  : disabled' /tmp/nozellijauto.log
 su - tester -c 'bash /src/install.sh --dry-run --no-chsh --no-proxy --no-font' \
     >/tmp/nofont.log
 grep -q 'font         : skipped' /tmp/nofont.log
 echo "dry run passed"
+
+echo "=== zellij autostart opt-out ==="
+su - tester -c "$install_cmd --no-zellij-autostart" | tee /tmp/nozellijauto-install.log
+test ! -f /home/tester/.config/fish/conf.d/90-zellij-autostart.fish
+ls /home/tester/.config/fish/conf.d/90-zellij-autostart.fish.bak.* >/dev/null
+grep -q 'removed: .*90-zellij-autostart.fish' /tmp/nozellijauto-install.log
+echo "zellij autostart opt-out passed"
 
 echo "ALL TESTS PASSED"
 EOS

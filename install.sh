@@ -14,7 +14,7 @@
 
 set -Eeuo pipefail
 
-SCRIPT_VERSION="1.8.0"
+SCRIPT_VERSION="1.9.0"
 STARSHIP_VERSION="${STARSHIP_VERSION:-latest}"
 ATUIN_VERSION="${ATUIN_VERSION:-latest}"
 ZOXIDE_VERSION="${ZOXIDE_VERSION:-latest}"
@@ -32,6 +32,7 @@ NO_ZOXIDE=0
 NO_FZF=0
 NO_LSD=0
 NO_ZELLIJ=0
+NO_ZELLIJ_AUTOSTART=0
 NO_FONT=0
 FORCE=0
 DRY_RUN=0
@@ -136,6 +137,7 @@ Options:
   --no-fzf               Do not install fzf.
   --no-lsd               Do not install lsd.
   --no-zellij            Do not install zellij.
+  --no-zellij-autostart  Do not start zellij automatically in new terminals.
   --no-font              Do not install JetBrainsMono Nerd Font.
   --force                Reinstall starship, atuin, zoxide, fzf, lsd, zellij and
                          fonts even if present.
@@ -206,6 +208,7 @@ parse_args() {
             --no-fzf) NO_FZF=1 ;;
             --no-lsd) NO_LSD=1 ;;
             --no-zellij) NO_ZELLIJ=1 ;;
+            --no-zellij-autostart) NO_ZELLIJ_AUTOSTART=1 ;;
             --no-font) NO_FONT=1 ;;
             --force) FORCE=1 ;;
             --dry-run) DRY_RUN=1 ;;
@@ -1582,10 +1585,22 @@ place_file() {
     ok "installed: $dest"
 }
 
+remove_managed_file() {
+    local dest=$1
+    [[ -e "$dest" ]] || return 0
+
+    local backup
+    backup="${dest}.bak.$(date +%Y%m%d-%H%M%S)"
+    cp -a "$dest" "$backup"
+    rm -f "$dest"
+    ok "removed: $dest (backup: $backup)"
+}
+
 resolve_configs() {
     ATUIN_CONF_SRC=""
     ZELLIJ_CONF_SRC=""
     ZELLIJ_THEME_SRC=""
+    ZELLIJ_AUTOSTART_SRC=""
     local base
 
     if [[ -n "$CONFIG_DIR" ]]; then
@@ -1612,6 +1627,11 @@ resolve_configs() {
         ZELLIJ_CONF_SRC="$base/zellij/config.kdl"
         ZELLIJ_THEME_SRC="$base/zellij/themes/nord-gap.kdl"
     fi
+    if ((!NO_ZELLIJ)) && ((!NO_ZELLIJ_AUTOSTART)); then
+        [[ -f "$base/fish/conf.d/90-zellij-autostart.fish" ]] \
+            || die "zellij autostart config not found in $base (or pass --no-zellij-autostart)"
+        ZELLIJ_AUTOSTART_SRC="$base/fish/conf.d/90-zellij-autostart.fish"
+    fi
 }
 
 install_configs() {
@@ -1629,6 +1649,13 @@ install_configs() {
     if ((!NO_ZELLIJ)); then
         place_file "$ZELLIJ_CONF_SRC" "$CONFIG_HOME/zellij/config.kdl"
         place_file "$ZELLIJ_THEME_SRC" "$CONFIG_HOME/zellij/themes/nord-gap.kdl"
+    fi
+
+    local autostart_dest="$CONFIG_HOME/fish/conf.d/90-zellij-autostart.fish"
+    if ((NO_ZELLIJ_AUTOSTART)); then
+        remove_managed_file "$autostart_dest"
+    elif ((!NO_ZELLIJ)); then
+        place_file "$ZELLIJ_AUTOSTART_SRC" "$autostart_dest"
     fi
 }
 
@@ -1737,7 +1764,7 @@ setup_shell() {
 }
 
 print_plan() {
-    local fish_state starship_state atuin_state zoxide_state fzf_state lsd_state zellij_state font_state font_dir config_state config_files proxy_state
+    local fish_state starship_state atuin_state zoxide_state fzf_state lsd_state zellij_state zellij_auto_state font_state font_dir config_state config_files proxy_state
     if [[ -x "/usr/local/bin/fish" ]]; then
         FISH_BIN="/usr/local/bin/fish"
     else
@@ -1802,6 +1829,15 @@ print_plan() {
     else
         zellij_state="no binary for $(uname -m); will skip"
     fi
+    if ((NO_CONFIG)); then
+        zellij_auto_state="unchanged (--no-config)"
+    elif ((NO_ZELLIJ)); then
+        zellij_auto_state="skipped (--no-zellij)"
+    elif ((NO_ZELLIJ_AUTOSTART)); then
+        zellij_auto_state="disabled"
+    else
+        zellij_auto_state="enabled (exec on new terminal)"
+    fi
     font_dir=${FONT_DIR:-$DATA_HOME/fonts/$FONT_BASE}
     if ((NO_FONT)); then
         font_state="skipped"
@@ -1841,6 +1877,7 @@ ${BOLD}Installation plan${RESET}
   fzf          : $fzf_state
   lsd          : $lsd_state
   zellij       : $zellij_state
+  zellij auto  : $zellij_auto_state
   font         : $font_state
   configs      : $config_state
   proxy        : $proxy_state
@@ -1908,6 +1945,13 @@ print_summary() {
         printf '  zellij    : %s\n' "$(command -v zellij)"
     else
         printf '  zellij    : not installed\n'
+    fi
+    if ((!NO_ZELLIJ)) && ((!NO_CONFIG)); then
+        if ((NO_ZELLIJ_AUTOSTART)); then
+            printf '  zellij auto: disabled\n'
+        else
+            printf '  zellij auto: enabled\n'
+        fi
     fi
     if ((NO_FONT)); then
         printf '  font      : skipped\n'
