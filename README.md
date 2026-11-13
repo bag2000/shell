@@ -30,7 +30,8 @@ bash install.sh
 Запускайте **обычным пользователем**, не через `sudo`. Установщик сам вызовет `sudo`
 для установки пакетов, fish в `/usr/local/bin` и смены login shell.
 
-После установки откройте новый терминал или выполните:
+После установки откройте новый терминал — он запустится внутри zellij (см.
+раздел [«zellij»](#zellij)) — или выполните:
 
 ```bash
 exec fish
@@ -113,7 +114,8 @@ URL прокси не попадают в лог: выводится `http://***
     `~/.local/share/fonts/JetBrainsMonoNerdFontMono` (без сети и пакетных
     репозиториев).
 12. Устанавливает конфиги:
-    - `~/.config/fish/conf.d/00-shell-setup.fish`
+    - `~/.config/fish/conf.d/00-shell-setup.fish` (PATH, starship, atuin, zoxide,
+      lsd, автозапуск zellij)
     - `~/.config/starship.toml`
     - `~/.config/atuin/config.toml`
     (с учётом `XDG_CONFIG_HOME`, если он задан).
@@ -298,16 +300,34 @@ zellij — терминальный мультиплексор и рабочие
 ([zellij-org/zellij](https://github.com/zellij-org/zellij)), пакетный репозиторий
 дистрибутива не используется.
 
+Установщик также включает автозапуск: при открытии нового терминала fish
+запускает zellij вместо обычной оболочки. Вложенные сессии (когда `ZELLIJ` уже
+задан) и нетерминальные запуски fish пропускаются, поэтому `fish -c ...` и
+скрипты работают как раньше.
+
 ```bash
-zellij              # запустить сессию
+zellij              # запустить сессию вручную
 zellij attach       # подключиться к существующей сессии
 zellij --version
 ```
 
-Отдельной интеграции в fish нет: zellij запускается вручную. Свой конфиг можно
-положить в `~/.config/zellij/config.kdl` — установщик его не создаёт и не меняет.
-Пропустить установку: `--no-zellij`. Конкретная версия: `--zellij-version V` или
-`ZELLIJ_VERSION=V bash install.sh`.
+Отключить автозапуск:
+
+```fish
+# в ~/.config/fish/config.fish
+set -gx ZELLIJ_AUTO_START 0
+```
+
+или разово для одного терминала:
+
+```bash
+ZELLIJ_AUTO_START=0 fish
+```
+
+Свой конфиг zellij можно положить в `~/.config/zellij/config.kdl` — установщик
+его не создаёт и не меняет. Пропустить установку zellij: `--no-zellij`
+(автозапуск при этом не сработает, если zellij нет в `PATH`). Конкретная версия:
+`--zellij-version V` или `ZELLIJ_VERSION=V bash install.sh`.
 
 ## Проверка версий и обновление
 
@@ -401,7 +421,7 @@ sudo apt remove fish        # Debian/Ubuntu
 install.sh                                  # установщик (запуск из репозитория)
 .env.example                                # шаблон настроек прокси
 .gitignore                                  # .env и бэкапы не попадают в git
-config/fish/conf.d/00-shell-setup.fish      # PATH, starship, atuin, zoxide, аббревиатуры (cd→z, ls→lsd)
+config/fish/conf.d/00-shell-setup.fish      # PATH, starship, atuin, zoxide, lsd, автозапуск zellij (cd→z, ls→lsd)
 config/starship.toml                        # тема Arch OS (Nord)
 config/atuin.toml                           # локальная история, настройки поиска
 fonts/JetBrainsMonoNerdFontMono/            # вендорный Nerd Font (16 .ttf + OFL.txt)

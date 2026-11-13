@@ -42,4 +42,13 @@ if status is-interactive
     abbr --add --global gs 'git status'
     abbr --add --global gd 'git diff'
     abbr --add --global gl 'git log --oneline --graph --decorate -20'
+
+    # Open every new terminal inside zellij. Nested sessions (ZELLIJ is set) and
+    # non-terminal shells are skipped; set ZELLIJ_AUTO_START=0 to keep a plain
+    # shell.
+    if type -q zellij; and not set -q ZELLIJ; and isatty stdin; and isatty stdout
+        if not contains -- "$ZELLIJ_AUTO_START" 0 false; and test "$TERM" != dumb
+            exec zellij
+        end
+    end
 end

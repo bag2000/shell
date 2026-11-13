@@ -91,6 +91,34 @@ su - tester -c 'fish -c "atuin init fish | source; echo ATUIN_INIT_OK"' \
     | grep -q ATUIN_INIT_OK
 su - tester -c 'fish -c "zoxide init fish | source; echo ZOXIDE_INIT_OK"' \
     | grep -q ZOXIDE_INIT_OK
+
+# zellij autostart: only in a real terminal, opt-out via ZELLIJ_AUTO_START=0.
+grep -q 'exec zellij' /home/tester/.config/fish/conf.d/00-shell-setup.fish
+mkdir -p /tmp/fakebin
+printf '#!/bin/sh\necho ZELLIJ_AUTOSTART_OK\n' >/tmp/fakebin/zellij
+chmod 755 /tmp/fakebin/zellij
+su - tester -c 'PATH=/tmp/fakebin:/home/tester/.local/bin:$PATH fish -i -c "echo NO_TTY_OK"' \
+    | grep -q NO_TTY_OK
+if command -v script >/dev/null 2>&1; then
+    cat >/tmp/zellij-autostart.sh <<'EOF'
+#!/bin/bash
+export PATH=/tmp/fakebin:$HOME/.local/bin:$PATH
+script -qec 'fish -i -c "echo SHELL_ALIVE"' /dev/null </dev/null
+EOF
+    chmod 755 /tmp/zellij-autostart.sh
+    su - tester -c /tmp/zellij-autostart.sh | grep -q ZELLIJ_AUTOSTART_OK
+
+    cat >/tmp/zellij-optout.sh <<'EOF'
+#!/bin/bash
+export PATH=/tmp/fakebin:$HOME/.local/bin:$PATH
+export ZELLIJ_AUTO_START=0
+script -qec 'fish -i -c "echo SHELL_ALIVE"' /dev/null </dev/null
+EOF
+    chmod 755 /tmp/zellij-optout.sh
+    su - tester -c /tmp/zellij-optout.sh | grep -q SHELL_ALIVE
+else
+    echo "warning: script not found; skipping zellij autostart PTY test" >&2
+fi
 echo "checks passed"
 
 echo "=== idempotent re-run (local configs) ==="
