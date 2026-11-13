@@ -45,3 +45,14 @@ Copyright 2020 The JetBrains Mono Project Authors
 
 Licensed under the SIL Open Font License, Version 1.1. The full license text is
 included at `fonts/JetBrainsMonoNerdFontMono/OFL.txt`.
+
+## Zellij Nord theme
+
+`config/zellij/themes/nord-gap.kdl` is based on the Nord theme bundled with
+[Zellij](https://github.com/zellij-org/zellij) 0.46.0
+(`zellij-utils/assets/themes/nord.kdl`), with the pane frame colors adjusted.
+
+Copyright (c) 2020 Zellij contributors
+
+Licensed under the MIT License (the license text is the same as in the
+`starship-theme-arch-os` section above).

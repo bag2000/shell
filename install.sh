@@ -14,7 +14,7 @@
 
 set -Eeuo pipefail
 
-SCRIPT_VERSION="1.7.0"
+SCRIPT_VERSION="1.8.0"
 STARSHIP_VERSION="${STARSHIP_VERSION:-latest}"
 ATUIN_VERSION="${ATUIN_VERSION:-latest}"
 ZOXIDE_VERSION="${ZOXIDE_VERSION:-latest}"
@@ -144,7 +144,7 @@ Options:
                          Exit: 0 up to date, 1 updates available, 2 check failed.
   --update               Update already installed tools only; do not install
                          missing components, configs, or change the login shell.
-  --config-dir DIR       Use configs from DIR (must contain fish/, starship.toml, atuin.toml).
+  --config-dir DIR       Use configs from DIR (fish/, starship.toml, atuin.toml, zellij/).
   --font-dir DIR         Install the font to DIR.
   --starship-version V   Install a specific starship version (default: latest).
   --atuin-version V      Install a specific atuin version (default: latest).
@@ -1584,6 +1584,8 @@ place_file() {
 
 resolve_configs() {
     ATUIN_CONF_SRC=""
+    ZELLIJ_CONF_SRC=""
+    ZELLIJ_THEME_SRC=""
     local base
 
     if [[ -n "$CONFIG_DIR" ]]; then
@@ -1604,6 +1606,12 @@ resolve_configs() {
             || die "atuin config not found in $base (or pass --no-atuin)"
         ATUIN_CONF_SRC="$base/atuin.toml"
     fi
+    if ((!NO_ZELLIJ)); then
+        [[ -f "$base/zellij/config.kdl" && -f "$base/zellij/themes/nord-gap.kdl" ]] \
+            || die "zellij config not found in $base (or pass --no-zellij)"
+        ZELLIJ_CONF_SRC="$base/zellij/config.kdl"
+        ZELLIJ_THEME_SRC="$base/zellij/themes/nord-gap.kdl"
+    fi
 }
 
 install_configs() {
@@ -1617,6 +1625,10 @@ install_configs() {
     place_file "$STARSHIP_CONF_SRC" "$CONFIG_HOME/starship.toml"
     if ((!NO_ATUIN)); then
         place_file "$ATUIN_CONF_SRC" "$CONFIG_HOME/atuin/config.toml"
+    fi
+    if ((!NO_ZELLIJ)); then
+        place_file "$ZELLIJ_CONF_SRC" "$CONFIG_HOME/zellij/config.kdl"
+        place_file "$ZELLIJ_THEME_SRC" "$CONFIG_HOME/zellij/themes/nord-gap.kdl"
     fi
 }
 
@@ -1725,7 +1737,7 @@ setup_shell() {
 }
 
 print_plan() {
-    local fish_state starship_state atuin_state zoxide_state fzf_state lsd_state zellij_state font_state font_dir config_state proxy_state
+    local fish_state starship_state atuin_state zoxide_state fzf_state lsd_state zellij_state font_state font_dir config_state config_files proxy_state
     if [[ -x "/usr/local/bin/fish" ]]; then
         FISH_BIN="/usr/local/bin/fish"
     else
@@ -1800,10 +1812,15 @@ print_plan() {
     fi
     if ((NO_CONFIG)); then
         config_state="skipped"
-    elif ((NO_ATUIN)) || [[ "$atuin_state" == no\ binary* ]]; then
-        config_state="$CONFIG_HOME/{fish/conf.d/00-shell-setup.fish,starship.toml}"
     else
-        config_state="$CONFIG_HOME/{fish/conf.d/00-shell-setup.fish,starship.toml,atuin/config.toml}"
+        config_files="fish/conf.d/00-shell-setup.fish,starship.toml"
+        if ((!NO_ATUIN)) && [[ "$atuin_state" != no\ binary* ]]; then
+            config_files+=",atuin/config.toml"
+        fi
+        if ((!NO_ZELLIJ)) && [[ "$zellij_state" != no\ binary* ]]; then
+            config_files+=",zellij/{config.kdl,themes/nord-gap.kdl}"
+        fi
+        config_state="$CONFIG_HOME/{$config_files}"
     fi
     if [[ -n "$EFFECTIVE_PROXY" ]]; then
         proxy_state=$(redact_proxy "$EFFECTIVE_PROXY")

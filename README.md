@@ -118,6 +118,8 @@ URL прокси не попадают в лог: выводится `http://***
       lsd, автозапуск zellij)
     - `~/.config/starship.toml`
     - `~/.config/atuin/config.toml`
+    - `~/.config/zellij/config.kdl` и `~/.config/zellij/themes/nord-gap.kdl`
+      (тема Nord с «зазорами» между панелями)
     (с учётом `XDG_CONFIG_HOME`, если он задан).
 13. Регистрирует fish в `/etc/shells` и меняет login shell через `chsh`.
 
@@ -180,7 +182,7 @@ bash install.sh --update
 | `--dry-run` | Показать план и выйти, ничего не меняя |
 | `--check` | Показать установленные и последние версии, ничего не меняя |
 | `--update` | Обновить только уже установленные утилиты |
-| `--config-dir DIR` | Взять конфиги из локального каталога `DIR` |
+| `--config-dir DIR` | Взять конфиги из локального каталога `DIR` (fish/, starship.toml, atuin.toml, zellij/) |
 | `--font-dir DIR` | Установить шрифт в каталог `DIR` |
 | `--starship-version V` | Установить указанную версию starship |
 | `--atuin-version V` | Установить указанную версию atuin |
@@ -324,10 +326,22 @@ set -gx ZELLIJ_AUTO_START 0
 ZELLIJ_AUTO_START=0 fish
 ```
 
-Свой конфиг zellij можно положить в `~/.config/zellij/config.kdl` — установщик
-его не создаёт и не меняет. Пропустить установку zellij: `--no-zellij`
-(автозапуск при этом не сработает, если zellij нет в `PATH`). Конкретная версия:
+Установщик ставит готовый конфиг `~/.config/zellij/config.kdl` и тему
+`~/.config/zellij/themes/nord-gap.kdl`. В теме неактивные рамки панелей окрашены
+в цвет фона, поэтому между панелями остаются пустые поля — «зазоры» как в i3wm;
+активная панель обведена синим (`#81A1C1`, как `border_active` в i3).
+Для этого используется `pane_frame_style "full"` (Zellij 0.46+). Существующий
+конфиг при установке сохраняется в `config.kdl.bak.YYYYMMDD-HHMMSS`.
+В конфиге есть `copy_command "clip-both"` (копирование в CLIPBOARD и PRIMARY);
+если такого помощника нет в `PATH`, закомментируйте `copy_command` и
+`copy_clipboard`.
+
+Пропустить установку zellij вместе с его конфигом: `--no-zellij`.
+Не трогать конфиги (все): `--no-config`. Конкретная версия:
 `--zellij-version V` или `ZELLIJ_VERSION=V bash install.sh`.
+
+Свой конфиг можно положить в `~/.config/zellij/config.kdl` после установки —
+при следующем запуске `install.sh` он будет заменён вендорным (с бэкапом).
 
 ## Проверка версий и обновление
 
@@ -402,6 +416,8 @@ rm -f ~/.local/bin/fish
 # при желании:
 rm -f ~/.config/starship.toml
 rm -f ~/.config/atuin/config.toml
+rm -f ~/.config/zellij/config.kdl
+rm -f ~/.config/zellij/themes/nord-gap.kdl
 sudo apt remove fish        # Debian/Ubuntu
 # sudo dnf remove fish      # Fedora
 # sudo pacman -Rns fish     # Arch
@@ -424,8 +440,10 @@ install.sh                                  # установщик (запуск
 config/fish/conf.d/00-shell-setup.fish      # PATH, starship, atuin, zoxide, lsd, автозапуск zellij (cd→z, ls→lsd)
 config/starship.toml                        # тема Arch OS (Nord)
 config/atuin.toml                           # локальная история, настройки поиска
+config/zellij/config.kdl                    # Zellij: полные рамки, зазоры, автозапуск
+config/zellij/themes/nord-gap.kdl          # Nord-тема с невидимыми неактивными рамками
 fonts/JetBrainsMonoNerdFontMono/            # вендорный Nerd Font (16 .ttf + OFL.txt)
-THIRD_PARTY_NOTICES.md                      # лицензии темы Arch OS (MIT) и шрифта (OFL)
+THIRD_PARTY_NOTICES.md                      # лицензии тем (MIT) и шрифта (OFL)
 tests/ubuntu.sh                             # smoke-тест в Docker
 ```
 

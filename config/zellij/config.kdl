@@ -1,0 +1,46 @@
+// Zellij config — палитра под Noctalia/Ghostty (те же 16 цветов, что в ghostty/kitty)
+// Проверка синтаксиса: zellij setup --check
+
+// Тема лежит в themes/nord-gap.kdl. Неактивные рамки в ней цвета фона,
+// поэтому вокруг панелей остаются пустые поля — «зазоры» как в i3wm.
+theme "nord-gap"
+
+default_shell "fish"
+default_mode "normal"
+default_layout "default"
+
+// Полные рамки вокруг каждой панели: неактивные сливаются с фоном и дают
+// зазор в 1–2 клетки, активная обведена синим (border_active в i3).
+pane_frames true
+pane_frame_style "full"
+// Мышь: false = zellij не перехватывает клики, мышь обрабатывает сам терминал
+// (выделение + вставка средней кнопкой работают как в обычном терминале).
+// Плата: нет клик-фокуса панелей, ресайза рамок мышью и прокрутки колёсиком
+// (скролл — Ctrl+s). Вернуть перехват: mouse_mode true
+mouse_mode false
+scroll_buffer_size 50000
+
+// Копирование при выделении мышью: пишем в оба буфера — CLIPBOARD (Ctrl+Shift+V)
+// и PRIMARY (средний клик), иначе Shift+средний клик вставляет старое.
+// clip-both — необязательный помощник из ~/.local/bin; если его нет,
+// закомментируйте обе строки и zellij будет использовать свой буфер.
+copy_command "clip-both"
+copy_clipboard "system"
+
+// Сессии: сохранять состояние и не спрашивать про подключение к существующей
+session_serialization true
+attach_to_session false
+
+// Не показывать приветствие и changelog при первом старте
+show_startup_tips false
+show_release_notes false
+
+// Ghostty умеет kitty keyboard protocol — пусть zellij его использует
+support_kitty_keyboard_protocol true
+
+ui {
+    pane_frames {
+        rounded_corners false
+        hide_session_name true
+    }
+}

@@ -76,10 +76,16 @@ test "$(stat -c %U /home/tester/.local/share/fonts/JetBrainsMonoNerdFontMono)" =
 test -f /home/tester/.config/fish/conf.d/00-shell-setup.fish
 test -f /home/tester/.config/starship.toml
 test -f /home/tester/.config/atuin/config.toml
+test -f /home/tester/.config/zellij/config.kdl
+test -f /home/tester/.config/zellij/themes/nord-gap.kdl
+grep -q 'pane_frame_style "full"' /home/tester/.config/zellij/config.kdl
+grep -q 'frame_unselected' /home/tester/.config/zellij/themes/nord-gap.kdl
+su - tester -c 'zellij setup --check' | grep -q 'CONFIG FILE: Well defined'
 grep -q 'murkl/starship-theme-arch-os' /home/tester/.config/starship.toml
 test "$(stat -c %U /home/tester/.local)" = "tester"
 test "$(stat -c %U /home/tester/.config/fish)" = "tester"
 test "$(stat -c %U /home/tester/.config/atuin)" = "tester"
+test "$(stat -c %U /home/tester/.config/zellij)" = "tester"
 su - tester -c 'fish -i -c "echo INTERACTIVE_OK"' | grep -q INTERACTIVE_OK
 su - tester -c 'fish -i -c "abbr --show"' | grep -q 'lsd -lah'
 su - tester -c 'fish -i -c "abbr --show"' | grep -q 'lsd -A'
@@ -132,6 +138,7 @@ grep -q 'zoxide is up to date' /tmp/rerun.log
 grep -q 'fzf is up to date' /tmp/rerun.log
 grep -q 'lsd is up to date' /tmp/rerun.log
 grep -q 'zellij is up to date' /tmp/rerun.log
+grep -q 'already up to date: /home/tester/.config/zellij/config.kdl' /tmp/rerun.log
 grep -q 'fonts are up to date' /tmp/rerun.log
 grep -q 'login shell is already fish' /tmp/rerun.log
 echo "idempotency passed"
@@ -193,6 +200,10 @@ grep -q 'lsd          : skipped' /tmp/nolsd.log
 su - tester -c 'bash /src/install.sh --dry-run --no-chsh --no-proxy --no-zellij' \
     >/tmp/nozellij.log
 grep -q 'zellij       : skipped' /tmp/nozellij.log
+if grep -q 'zellij/config.kdl' /tmp/nozellij.log; then
+    echo "zellij config should be skipped with --no-zellij" >&2
+    exit 1
+fi
 su - tester -c 'bash /src/install.sh --dry-run --no-chsh --no-proxy --no-font' \
     >/tmp/nofont.log
 grep -q 'font         : skipped' /tmp/nofont.log
