@@ -14,7 +14,7 @@
 
 set -Eeuo pipefail
 
-SCRIPT_VERSION="1.9.0"
+SCRIPT_VERSION="1.11.0"
 STARSHIP_VERSION="${STARSHIP_VERSION:-latest}"
 ATUIN_VERSION="${ATUIN_VERSION:-latest}"
 ZOXIDE_VERSION="${ZOXIDE_VERSION:-latest}"
@@ -33,6 +33,7 @@ NO_FZF=0
 NO_LSD=0
 NO_ZELLIJ=0
 NO_ZELLIJ_AUTOSTART=0
+NO_ZELLIJ_MOUSE=0
 NO_FONT=0
 FORCE=0
 DRY_RUN=0
@@ -138,6 +139,7 @@ Options:
   --no-lsd               Do not install lsd.
   --no-zellij            Do not install zellij.
   --no-zellij-autostart  Do not start zellij automatically in new terminals.
+  --no-zellij-mouse      Let the terminal handle mouse events instead of zellij.
   --no-font              Do not install JetBrainsMono Nerd Font.
   --force                Reinstall starship, atuin, zoxide, fzf, lsd, zellij and
                          fonts even if present.
@@ -209,6 +211,7 @@ parse_args() {
             --no-lsd) NO_LSD=1 ;;
             --no-zellij) NO_ZELLIJ=1 ;;
             --no-zellij-autostart) NO_ZELLIJ_AUTOSTART=1 ;;
+            --no-zellij-mouse) NO_ZELLIJ_MOUSE=1 ;;
             --no-font) NO_FONT=1 ;;
             --force) FORCE=1 ;;
             --dry-run) DRY_RUN=1 ;;
@@ -1596,10 +1599,27 @@ remove_managed_file() {
     ok "removed: $dest (backup: $backup)"
 }
 
+place_zellij_config() {
+    local src=$1 dest=$2
+
+    if ((NO_ZELLIJ_MOUSE)); then
+        local tmpdir
+        tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/shell-zellij-config.XXXXXX")
+        TMP_DIRS+=("$tmpdir")
+        sed 's/^mouse_mode true$/mouse_mode false/' "$src" > "$tmpdir/config.kdl"
+        grep -q '^mouse_mode false$' "$tmpdir/config.kdl" \
+            || die "could not disable mouse mode in the zellij config"
+        place_file "$tmpdir/config.kdl" "$dest"
+    else
+        place_file "$src" "$dest"
+    fi
+}
+
 resolve_configs() {
     ATUIN_CONF_SRC=""
     ZELLIJ_CONF_SRC=""
     ZELLIJ_THEME_SRC=""
+    ZELLIJ_MAIN_SRC=""
     ZELLIJ_AUTOSTART_SRC=""
     local base
 
@@ -1624,8 +1644,11 @@ resolve_configs() {
     if ((!NO_ZELLIJ)); then
         [[ -f "$base/zellij/config.kdl" && -f "$base/zellij/themes/nord-gap.kdl" ]] \
             || die "zellij config not found in $base (or pass --no-zellij)"
+        [[ -f "$base/fish/conf.d/80-zellij-main.fish" ]] \
+            || die "zellij main-session config not found in $base (or pass --no-zellij)"
         ZELLIJ_CONF_SRC="$base/zellij/config.kdl"
         ZELLIJ_THEME_SRC="$base/zellij/themes/nord-gap.kdl"
+        ZELLIJ_MAIN_SRC="$base/fish/conf.d/80-zellij-main.fish"
     fi
     if ((!NO_ZELLIJ)) && ((!NO_ZELLIJ_AUTOSTART)); then
         [[ -f "$base/fish/conf.d/90-zellij-autostart.fish" ]] \
@@ -1647,8 +1670,9 @@ install_configs() {
         place_file "$ATUIN_CONF_SRC" "$CONFIG_HOME/atuin/config.toml"
     fi
     if ((!NO_ZELLIJ)); then
-        place_file "$ZELLIJ_CONF_SRC" "$CONFIG_HOME/zellij/config.kdl"
+        place_zellij_config "$ZELLIJ_CONF_SRC" "$CONFIG_HOME/zellij/config.kdl"
         place_file "$ZELLIJ_THEME_SRC" "$CONFIG_HOME/zellij/themes/nord-gap.kdl"
+        place_file "$ZELLIJ_MAIN_SRC" "$CONFIG_HOME/fish/conf.d/80-zellij-main.fish"
     fi
 
     local autostart_dest="$CONFIG_HOME/fish/conf.d/90-zellij-autostart.fish"
@@ -1764,7 +1788,7 @@ setup_shell() {
 }
 
 print_plan() {
-    local fish_state starship_state atuin_state zoxide_state fzf_state lsd_state zellij_state zellij_auto_state font_state font_dir config_state config_files proxy_state
+    local fish_state starship_state atuin_state zoxide_state fzf_state lsd_state zellij_state zellij_auto_state zellij_mouse_state font_state font_dir config_state config_files proxy_state
     if [[ -x "/usr/local/bin/fish" ]]; then
         FISH_BIN="/usr/local/bin/fish"
     else
@@ -1838,6 +1862,15 @@ print_plan() {
     else
         zellij_auto_state="enabled (exec on new terminal)"
     fi
+    if ((NO_CONFIG)); then
+        zellij_mouse_state="unchanged (--no-config)"
+    elif ((NO_ZELLIJ)); then
+        zellij_mouse_state="skipped (--no-zellij)"
+    elif ((NO_ZELLIJ_MOUSE)); then
+        zellij_mouse_state="disabled (terminal handles mouse)"
+    else
+        zellij_mouse_state="enabled"
+    fi
     font_dir=${FONT_DIR:-$DATA_HOME/fonts/$FONT_BASE}
     if ((NO_FONT)); then
         font_state="skipped"
@@ -1854,6 +1887,10 @@ print_plan() {
             config_files+=",atuin/config.toml"
         fi
         if ((!NO_ZELLIJ)) && [[ "$zellij_state" != no\ binary* ]]; then
+            config_files+=",fish/conf.d/80-zellij-main.fish"
+            if ((!NO_ZELLIJ_AUTOSTART)); then
+                config_files+=",fish/conf.d/90-zellij-autostart.fish"
+            fi
             config_files+=",zellij/{config.kdl,themes/nord-gap.kdl}"
         fi
         config_state="$CONFIG_HOME/{$config_files}"
@@ -1878,6 +1915,7 @@ ${BOLD}Installation plan${RESET}
   lsd          : $lsd_state
   zellij       : $zellij_state
   zellij auto  : $zellij_auto_state
+  zellij mouse : $zellij_mouse_state
   font         : $font_state
   configs      : $config_state
   proxy        : $proxy_state
@@ -1951,6 +1989,11 @@ print_summary() {
             printf '  zellij auto: disabled\n'
         else
             printf '  zellij auto: enabled\n'
+        fi
+        if ((NO_ZELLIJ_MOUSE)); then
+            printf '  zellij mouse: disabled\n'
+        else
+            printf '  zellij mouse: enabled\n'
         fi
     fi
     if ((NO_FONT)); then

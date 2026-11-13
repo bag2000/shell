@@ -116,6 +116,7 @@ URL прокси не попадают в лог: выводится `http://***
 12. Устанавливает конфиги:
     - `~/.config/fish/conf.d/00-shell-setup.fish` (PATH, starship, atuin, zoxide,
       lsd)
+    - `~/.config/fish/conf.d/80-zellij-main.fish` (bare `zellij` → сессия `main`)
     - `~/.config/fish/conf.d/90-zellij-autostart.fish` (автозапуск zellij)
     - `~/.config/starship.toml`
     - `~/.config/atuin/config.toml`
@@ -179,6 +180,7 @@ bash install.sh --update
 | `--no-lsd` | Не устанавливать lsd |
 | `--no-zellij` | Не устанавливать zellij |
 | `--no-zellij-autostart` | Не включать автозапуск zellij в новых терминалах |
+| `--no-zellij-mouse` | Не перехватывать мышь в zellij (выделение делает терминал) |
 | `--no-font` | Не устанавливать шрифт JetBrainsMono Nerd Font |
 | `--force` | Переустановить starship, atuin, zoxide, fzf, lsd, zellij и шрифт, даже если они уже есть |
 | `--dry-run` | Показать план и выйти, ничего не меняя |
@@ -309,9 +311,15 @@ zellij — терминальный мультиплексор и рабочие
 задан) и нетерминальные запуски fish пропускаются, поэтому `fish -c ...` и
 скрипты работают как раньше.
 
+Zellij всегда использует сессию **main**: если она уже существует — происходит
+attach, если нет — она создаётся и сразу открывается. Так же работает и ручной
+запуск: команда `zellij` без аргументов в fish прикрепляется к `main` (функция-
+обёртка в `80-zellij-main.fish`). Остальные вызовы передаются как есть:
+`zellij list-sessions`, `zellij attach other`, `zellij --version` и т.д.
+
 ```bash
-zellij              # запустить сессию вручную
-zellij attach       # подключиться к существующей сессии
+zellij              # сессия main: attach или создание
+zellij attach       # подключиться к существующей сессии (выбор из списка)
 zellij --version
 ```
 
@@ -348,6 +356,9 @@ ZELLIJ_AUTO_START=0 fish
 Вставка — `Ctrl+Shift+V` в Ghostty/kitty, `Cmd+V` в iTerm; клиентский терминал
 должен разрешать OSC 52. Если появится помощник `clip-both`, `copy_command`
 можно вернуть — строка есть в комментарии.
+
+Если мышь должна обрабатывать терминал (старое поведение), установите с
+`--no-zellij-mouse` — в конфиг записывается `mouse_mode false`.
 
 Пропустить установку zellij вместе с его конфигом: `--no-zellij`.
 Не трогать конфиги (все): `--no-config`. Конкретная версия:
@@ -416,6 +427,7 @@ docker run --rm -v "$PWD:/mnt:ro" koalaman/shellcheck:stable /mnt/install.sh
 ```bash
 chsh -s /bin/bash
 rm -f ~/.config/fish/conf.d/00-shell-setup.fish
+rm -f ~/.config/fish/conf.d/80-zellij-main.fish
 rm -f ~/.config/fish/conf.d/90-zellij-autostart.fish
 rm -f ~/.local/bin/starship
 rm -f ~/.local/bin/atuin
@@ -452,10 +464,11 @@ install.sh                                  # установщик (запуск
 .env.example                                # шаблон настроек прокси
 .gitignore                                  # .env и бэкапы не попадают в git
 config/fish/conf.d/00-shell-setup.fish      # PATH, starship, atuin, zoxide, lsd (cd→z, ls→lsd)
+config/fish/conf.d/80-zellij-main.fish      # bare zellij → attach --create main
 config/fish/conf.d/90-zellij-autostart.fish # автозапуск zellij в новых терминалах
 config/starship.toml                        # тема Arch OS (Nord)
 config/atuin.toml                           # локальная история, настройки поиска
-config/zellij/config.kdl                    # Zellij: полные рамки, зазоры, автозапуск
+config/zellij/config.kdl                    # Zellij: полные рамки, зазоры, мышь, автозапуск
 config/zellij/themes/nord-gap.kdl          # Nord-тема с невидимыми неактивными рамками
 fonts/JetBrainsMonoNerdFontMono/            # вендорный Nerd Font (16 .ttf + OFL.txt)
 THIRD_PARTY_NOTICES.md                      # лицензии тем (MIT) и шрифта (OFL)

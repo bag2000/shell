@@ -104,8 +104,12 @@ su - tester -c 'fish -c "zoxide init fish | source; echo ZOXIDE_INIT_OK"' \
     | grep -q ZOXIDE_INIT_OK
 
 # zellij autostart: only in a real terminal, opt-out via ZELLIJ_AUTO_START=0.
+test -f /home/tester/.config/fish/conf.d/80-zellij-main.fish
+grep -q 'attach --create main' /home/tester/.config/fish/conf.d/80-zellij-main.fish
 test -f /home/tester/.config/fish/conf.d/90-zellij-autostart.fish
-grep -q 'exec zellij' /home/tester/.config/fish/conf.d/90-zellij-autostart.fish
+grep -q 'exec zellij attach --create main' /home/tester/.config/fish/conf.d/90-zellij-autostart.fish
+su - tester -c 'fish -i -c "functions zellij"' | grep -q 'attach --create main'
+su - tester -c 'fish -i -c "zellij --version"' | grep -q 'zellij'
 mkdir -p /tmp/fakebin
 printf '#!/bin/sh\necho ZELLIJ_AUTOSTART_OK\n' >/tmp/fakebin/zellij
 chmod 755 /tmp/fakebin/zellij
@@ -214,17 +218,22 @@ fi
 su - tester -c 'bash /src/install.sh --dry-run --no-chsh --no-proxy --no-zellij-autostart' \
     >/tmp/nozellijauto.log
 grep -q 'zellij auto  : disabled' /tmp/nozellijauto.log
+su - tester -c 'bash /src/install.sh --dry-run --no-chsh --no-proxy --no-zellij-mouse' \
+    >/tmp/nozellijmouse.log
+grep -q 'zellij mouse : disabled' /tmp/nozellijmouse.log
 su - tester -c 'bash /src/install.sh --dry-run --no-chsh --no-proxy --no-font' \
     >/tmp/nofont.log
 grep -q 'font         : skipped' /tmp/nofont.log
 echo "dry run passed"
 
-echo "=== zellij autostart opt-out ==="
-su - tester -c "$install_cmd --no-zellij-autostart" | tee /tmp/nozellijauto-install.log
+echo "=== zellij autostart/mouse opt-out ==="
+su - tester -c "$install_cmd --no-zellij-autostart --no-zellij-mouse" | tee /tmp/nozellijauto-install.log
 test ! -f /home/tester/.config/fish/conf.d/90-zellij-autostart.fish
+test -f /home/tester/.config/fish/conf.d/80-zellij-main.fish
 ls /home/tester/.config/fish/conf.d/90-zellij-autostart.fish.bak.* >/dev/null
 grep -q 'removed: .*90-zellij-autostart.fish' /tmp/nozellijauto-install.log
-echo "zellij autostart opt-out passed"
+grep -q '^mouse_mode false' /home/tester/.config/zellij/config.kdl
+echo "zellij autostart/mouse opt-out passed"
 
 echo "ALL TESTS PASSED"
 EOS
