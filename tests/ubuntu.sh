@@ -80,6 +80,11 @@ test -f /home/tester/.config/zellij/config.kdl
 test -f /home/tester/.config/zellij/themes/nord-gap.kdl
 grep -q 'pane_frame_style "full"' /home/tester/.config/zellij/config.kdl
 grep -q 'frame_unselected' /home/tester/.config/zellij/themes/nord-gap.kdl
+# Мышь: перехват включён; внешнего copy_command быть не должно — на headless-хосте
+# его программа отсутствует и копирование молча ломается (работает OSC 52).
+grep -qE '^mouse_mode true' /home/tester/.config/zellij/config.kdl
+grep -qE '^copy_on_select true' /home/tester/.config/zellij/config.kdl
+! grep -qE '^copy_command' /home/tester/.config/zellij/config.kdl
 su - tester -c 'zellij setup --check' | grep -q 'CONFIG FILE: Well defined'
 grep -q 'murkl/starship-theme-arch-os' /home/tester/.config/starship.toml
 test "$(stat -c %U /home/tester/.local)" = "tester"

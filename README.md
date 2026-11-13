@@ -338,9 +338,16 @@ ZELLIJ_AUTO_START=0 fish
 активная панель обведена синим (`#81A1C1`, как `border_active` в i3).
 Для этого используется `pane_frame_style "full"` (Zellij 0.46+). Существующий
 конфиг при установке сохраняется в `config.kdl.bak.YYYYMMDD-HHMMSS`.
-В конфиге есть `copy_command "clip-both"` (копирование в CLIPBOARD и PRIMARY);
-если такого помощника нет в `PATH`, закомментируйте `copy_command` и
-`copy_clipboard`.
+В конфиге `mouse_mode true`: клик фокусирует панель, колесо прокручивает
+панель (`Ctrl+s` — режим скролла и поиска), рамки тянутся мышью, протяжка
+мышью сразу копирует (`copy_on_select true`). Нативное выделение терминала —
+`Shift`+протяжка.
+
+Копирование идёт встроенным путём zellij через OSC 52: на headless-хосте нет
+ни X11/Wayland, ни `xclip`/`wl-copy`, поэтому `copy_command` в конфиге нет.
+Вставка — `Ctrl+Shift+V` в Ghostty/kitty, `Cmd+V` в iTerm; клиентский терминал
+должен разрешать OSC 52. Если появится помощник `clip-both`, `copy_command`
+можно вернуть — строка есть в комментарии.
 
 Пропустить установку zellij вместе с его конфигом: `--no-zellij`.
 Не трогать конфиги (все): `--no-config`. Конкретная версия:
